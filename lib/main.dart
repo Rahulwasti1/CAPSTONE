@@ -1,4 +1,4 @@
-import 'package:capstone/screens/userhome.dart';
+import 'package:capstone/login_screen/onboarding1.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
             seedColor: const Color.fromARGB(255, 255, 255, 255)),
         useMaterial3: true,
       ),
-      home: Userhome(),
+      home: Onboarding1(),
     );
   }
 }
