@@ -11,6 +11,7 @@ class _UserhomeState extends State<Userhome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.only(left: 25),
         child: Column(
@@ -18,7 +19,7 @@ class _UserhomeState extends State<Userhome> {
             SafeArea(
                 child: Row(
               children: [
-                SizedBox(height: 70),
+                SizedBox(height: 80),
                 Container(
                   decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
@@ -45,36 +46,29 @@ class _UserhomeState extends State<Userhome> {
                 SizedBox(width: 110),
                 Expanded(
                   child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        print("Notification Button Clicked");
+                      },
                       style: ElevatedButton.styleFrom(
                           elevation: 0.1,
+                          backgroundColor: Colors.white,
                           minimumSize: Size(10, 40),
                           shape: CircleBorder()),
                       child: Icon(Icons.notifications,
                           size: 20,
                           color: const Color.fromARGB(255, 31, 31, 30))),
+                ),
+                SizedBox(height: 20),
+                Row(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                          prefixIcon: Icon(Icons.search), hintText: "Search"),
+                    )
+                  ],
                 )
               ],
             )),
-            SizedBox(height: 0),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                        prefixIcon: Transform.scale(
-                          scale: 0.1,
-                          child: Image.asset(
-                            "assets/images/search.png",
-                          ),
-                        ),
-                        hintText: "Search",
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10))),
-                  ),
-                )
-              ],
-            )
           ],
         ),
       ),
