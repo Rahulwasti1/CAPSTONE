@@ -68,7 +68,7 @@ class _UserSignupState extends State<UserSignup> {
 
   Widget customLoginIcon({required String image}) {
     return ElevatedButton(
-      onPressed: () => print("Login with $image"),
+      onPressed: () => print("Login"),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         elevation: 0.1,
