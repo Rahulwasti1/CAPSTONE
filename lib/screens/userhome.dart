@@ -66,7 +66,7 @@ class _UserhomeState extends State<Userhome> {
                 ],
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 4.h),
             Padding(
               padding: EdgeInsets.only(left: 19.w),
               child: Row(
@@ -110,7 +110,7 @@ class _UserhomeState extends State<Userhome> {
             Column(
               children: [
                 SizedBox(
-                  height: 200.h,
+                  height: 180.h,
                   width: 383,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
@@ -129,6 +129,31 @@ class _UserhomeState extends State<Userhome> {
                 ),
               ],
             ),
+            SizedBox(height: 15.h),
+            Padding(
+              padding: const EdgeInsets.only(left: 20),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text("Category",
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.brown)),
+                      SizedBox(width: 220.w),
+                      Text("See All",
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.brown))
+                    ],
+                  ),
+                  SizedBox(height: 20.h),
+
+                ],
+              ),
+            )
           ],
         ),
       ),
