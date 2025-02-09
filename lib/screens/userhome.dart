@@ -1,3 +1,4 @@
+import 'package:another_carousel_pro/another_carousel_pro.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -14,11 +15,11 @@ class _UserhomeState extends State<Userhome> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(left: 25),
-          child: Column(
-            children: [
-              Row(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 22),
+              child: Row(
                 children: [
                   SizedBox(height: 80.h),
                   Container(
@@ -47,7 +48,7 @@ class _UserhomeState extends State<Userhome> {
                       )
                     ],
                   ),
-                  SizedBox(width: 90.w),
+                  SizedBox(width: 99.w),
                   Expanded(
                     child: ElevatedButton(
                         onPressed: () {
@@ -64,11 +65,14 @@ class _UserhomeState extends State<Userhome> {
                   ),
                 ],
               ),
-              SizedBox(height: 8.h),
-              Row(
+            ),
+            SizedBox(height: 8.h),
+            Padding(
+              padding: EdgeInsets.only(left: 19.w),
+              child: Row(
                 children: [
                   SizedBox(
-                    width: 310,
+                    width: 316,
                     child: TextField(
                       decoration: InputDecoration(
                           prefixIcon: Icon(Icons.search),
@@ -99,12 +103,33 @@ class _UserhomeState extends State<Userhome> {
                           size: 22.sp,
                         ),
                       )),
-                  SizedBox(height: 10.h),
-                  
                 ],
-              )
-            ],
-          ),
+              ),
+            ),
+            SizedBox(height: 20.h),
+            Column(
+              children: [
+                SizedBox(
+                  height: 200.h,
+                  width: 383,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnotherCarousel(
+                      images: [
+                        AssetImage("assets/banner_images/1.png"),
+                        AssetImage("assets/banner_images/2.png"),
+                        AssetImage("assets/banner_images/3.png"),
+                        AssetImage("assets/banner_images/4.png"),
+                        AssetImage("assets/banner_images/5.png"),
+                      ],
+                      dotSize: 2,
+                      indicatorBgPadding: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
