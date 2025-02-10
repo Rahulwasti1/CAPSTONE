@@ -3,10 +3,22 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CustomListViewBuilder {
   final List<Map<String, dynamic>> buttonData = [
-    {"icon": Icons.home, "text": "Home"},
-    {"icon": Icons.favorite, "text": "Likes"},
-    {"icon": Icons.settings, "text": "Settings"},
-    {"icon": Icons.person, "text": "Profile"},
+    {
+      "image": Image.asset("assets/images/category_image/apparel.png"),
+      "text": "Apparel"
+    },
+    {
+      "image": Image.asset("assets/images/category_image/apparel.png"),
+      "text": "Sunglasses"
+    },
+    {
+      "image": Image.asset("assets/images/category_image/apparel.png"),
+      "text": "Ornaments"
+    },
+    {
+      "image": Image.asset("assets/images/category_image/apparel.png"),
+      "text": "Shoes"
+    },
   ];
 
   Widget buildListView() {
@@ -18,7 +30,7 @@ class CustomListViewBuilder {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: buttonData.length,
-            separatorBuilder: (context, index) => SizedBox(width: 14),
+            separatorBuilder: (context, index) => SizedBox(width: 13.w),
             itemBuilder: (context, index) {
               return Padding(
                 padding: EdgeInsets.symmetric(horizontal: 5),
@@ -32,9 +44,8 @@ class CustomListViewBuilder {
                         shape: CircleBorder(),
                         minimumSize: Size(70, 70),
                       ),
-                      child: Icon(
-                        buttonData[index]["icon"],
-                        size: 30,
+                      child: Image.asset(
+                        buttonData[index]["image"],
                         color: Colors.brown,
                       ),
                     ),

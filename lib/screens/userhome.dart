@@ -119,11 +119,11 @@ class _UserhomeState extends State<Userhome> {
                     borderRadius: BorderRadius.circular(12),
                     child: AnotherCarousel(
                       images: [
-                        AssetImage("assets/banner_images/1.png"),
-                        AssetImage("assets/banner_images/2.png"),
-                        AssetImage("assets/banner_images/3.png"),
-                        AssetImage("assets/banner_images/4.png"),
-                        AssetImage("assets/banner_images/5.png"),
+                        AssetImage("assets/images/banner_images/1.png"),
+                        AssetImage("assets/images/banner_images/2.png"),
+                        AssetImage("assets/images/banner_images/3.png"),
+                        AssetImage("assets/images/banner_images/4.png"),
+                        AssetImage("assets/images/banner_images/5.png"),
                       ],
                       dotSize: 2,
                       indicatorBgPadding: 1.5,
