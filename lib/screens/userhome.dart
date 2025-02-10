@@ -1,4 +1,5 @@
 import 'package:another_carousel_pro/another_carousel_pro.dart';
+import 'package:capstone/widget/widget_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -10,6 +11,8 @@ class Userhome extends StatefulWidget {
 }
 
 class _UserhomeState extends State<Userhome> {
+  final CustomListViewBuilder listViewBuilder = CustomListViewBuilder();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -18,7 +21,7 @@ class _UserhomeState extends State<Userhome> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 22),
+              padding: EdgeInsets.only(left: 22),
               child: Row(
                 children: [
                   SizedBox(height: 80.h),
@@ -72,7 +75,7 @@ class _UserhomeState extends State<Userhome> {
               child: Row(
                 children: [
                   SizedBox(
-                    width: 316,
+                    width: 317,
                     child: TextField(
                       decoration: InputDecoration(
                           prefixIcon: Icon(Icons.search),
@@ -111,7 +114,7 @@ class _UserhomeState extends State<Userhome> {
               children: [
                 SizedBox(
                   height: 180.h,
-                  width: 383,
+                  width: 385,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: AnotherCarousel(
@@ -141,7 +144,7 @@ class _UserhomeState extends State<Userhome> {
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
                               color: Colors.brown)),
-                      SizedBox(width: 220.w),
+                      SizedBox(width: 218.w),
                       Text("See All",
                           style: TextStyle(
                               fontSize: 12,
@@ -149,8 +152,12 @@ class _UserhomeState extends State<Userhome> {
                               color: Colors.brown))
                     ],
                   ),
-                  SizedBox(height: 20.h),
-
+                  SizedBox(height: 15.h),
+                  Column(
+                    children: [
+                      listViewBuilder.buildListView(),
+                    ],
+                  )
                 ],
               ),
             )
