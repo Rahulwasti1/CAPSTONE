@@ -27,18 +27,22 @@ class _UserNavigationState extends State<UserNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            currentIndex = 2;
-          });
-        },
-        shape: CircleBorder(),
-        backgroundColor: CustomColors.secondaryColor,
-        child: Icon(
-          Icons.camera_front,
-          size: 27,
-          color: Colors.white,
+      floatingActionButton: Container(
+        height: 100.h,
+        width: 62.w,
+        child: FloatingActionButton(
+          onPressed: () {
+            setState(() {
+              currentIndex = 2;
+            });
+          },
+          shape: CircleBorder(),
+          backgroundColor: CustomColors.secondaryColor,
+          child: Icon(
+            Icons.camera_front,
+            size: 32,
+            color: Colors.white,
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,

@@ -1,5 +1,6 @@
 import 'package:another_carousel_pro/another_carousel_pro.dart';
 import 'package:capstone/constants/colors.dart';
+import 'package:capstone/screens/Categories/categories.dart';
 import 'package:capstone/screens/Home/home_categories.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -148,12 +149,20 @@ class _UserhomeState extends State<Userhome> {
                               fontSize: 18.sp,
                               fontWeight: FontWeight.w600,
                               color: CustomColors.secondaryColor)),
-                      SizedBox(width: 218.w),
-                      Text("See All",
-                          style: TextStyle(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: CustomColors.secondaryColor))
+                      SizedBox(width: 204.w),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => UserCategories()));
+                        },
+                        child: Text("See All",
+                            style: TextStyle(
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w600,
+                                color: CustomColors.secondaryColor)),
+                      )
                     ],
                   ),
                   SizedBox(height: 15.h),
