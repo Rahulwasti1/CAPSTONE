@@ -1,3 +1,4 @@
+import 'package:capstone/login_screen/login.dart';
 import 'package:flutter/material.dart';
 
 class Onboarding1 extends StatelessWidget {
@@ -59,7 +60,7 @@ class Onboarding1 extends StatelessWidget {
                           SizedBox(width: 4),
                           GestureDetector(
                             onTap: () {
-                              print("Button Clicked");
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => UserLogin()));
                             },
                             child: Text(
                               "Sign In",

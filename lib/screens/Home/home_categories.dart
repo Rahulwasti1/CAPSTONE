@@ -1,36 +1,25 @@
+import 'package:capstone/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CustomListViewBuilder {
   final List<Map<String, dynamic>> buttonData = [
-    {
-      "image": Image.asset("assets/images/category_image/apparel.png"),
-      "text": "Apparel"
-    },
-    {
-      "image": Image.asset("assets/images/category_image/apparel.png"),
-      "text": "Sunglasses"
-    },
-    {
-      "image": Image.asset("assets/images/category_image/apparel.png"),
-      "text": "Ornaments"
-    },
-    {
-      "image": Image.asset("assets/images/category_image/apparel.png"),
-      "text": "Shoes"
-    },
+    {"image": "assets/images/category_image/apparel.png", "text": "Apparel"},
+    {"image": "assets/images/category_image/glass.png", "text": "Sunglasses"},
+    {"image": "assets/images/category_image/watch.png", "text": "Watches"},
+    {"image": "assets/images/category_image/shoes.png", "text": "Shoes"},
   ];
 
   Widget buildListView() {
     return Align(
       child: Transform.translate(
-        offset: Offset(-4.w, 0.h),
+        offset: Offset(-3.w, 0.h),
         child: SizedBox(
           height: 100,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: buttonData.length,
-            separatorBuilder: (context, index) => SizedBox(width: 13.w),
+            separatorBuilder: (context, index) => SizedBox(width: 8.w),
             itemBuilder: (context, index) {
               return Padding(
                 padding: EdgeInsets.symmetric(horizontal: 5),
@@ -46,7 +35,9 @@ class CustomListViewBuilder {
                       ),
                       child: Image.asset(
                         buttonData[index]["image"],
-                        color: Colors.brown,
+                        color: CustomColors.secondaryColor,
+                        width: 26.w,
+                        height: 26.h,
                       ),
                     ),
                     SizedBox(height: 5), // Space between icon & text

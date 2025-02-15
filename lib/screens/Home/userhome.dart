@@ -1,5 +1,6 @@
 import 'package:another_carousel_pro/another_carousel_pro.dart';
-import 'package:capstone/widget/widget_support.dart';
+import 'package:capstone/constants/colors.dart';
+import 'package:capstone/screens/Home/home_categories.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -28,7 +29,7 @@ class _UserhomeState extends State<Userhome> {
                   Container(
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        color: Colors.brown),
+                        color: CustomColors.secondaryColor),
                     height: 48.h,
                     width: 50.w,
                   ),
@@ -61,7 +62,10 @@ class _UserhomeState extends State<Userhome> {
                             elevation: 0.1,
                             backgroundColor: Colors.white,
                             minimumSize: Size(10.h, 40.w),
-                            shape: CircleBorder()),
+                            shape: CircleBorder(),
+                            side: BorderSide(
+                                color: const Color.fromARGB(255, 241, 239, 239),
+                                width: 0.5)),
                         child: Icon(Icons.notifications,
                             size: 20.sp,
                             color: const Color.fromARGB(255, 31, 31, 30))),
@@ -75,7 +79,7 @@ class _UserhomeState extends State<Userhome> {
               child: Row(
                 children: [
                   SizedBox(
-                    width: 317,
+                    width: 300,
                     child: TextField(
                       decoration: InputDecoration(
                           prefixIcon: Icon(Icons.search),
@@ -93,7 +97,7 @@ class _UserhomeState extends State<Userhome> {
                   ElevatedButton(
                       onPressed: () {},
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.brown,
+                          backgroundColor: CustomColors.secondaryColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -114,7 +118,7 @@ class _UserhomeState extends State<Userhome> {
               children: [
                 SizedBox(
                   height: 180.h,
-                  width: 385,
+                  width: 340.w,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: AnotherCarousel(
@@ -141,21 +145,38 @@ class _UserhomeState extends State<Userhome> {
                     children: [
                       Text("Category",
                           style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 18.sp,
                               fontWeight: FontWeight.w600,
-                              color: Colors.brown)),
+                              color: CustomColors.secondaryColor)),
                       SizedBox(width: 218.w),
                       Text("See All",
                           style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11.sp,
                               fontWeight: FontWeight.w600,
-                              color: Colors.brown))
+                              color: CustomColors.secondaryColor))
                     ],
                   ),
                   SizedBox(height: 15.h),
                   Column(
                     children: [
                       listViewBuilder.buildListView(),
+                    ],
+                  ),
+                  SizedBox(height: 18.h),
+                  Row(
+                    children: [
+                      Text(
+                        "Flash Sale",
+                        style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w600,
+                            color: CustomColors.secondaryColor),
+                      ),
+                      SizedBox(width: 100),
+                      Text(
+                        "Closing in:",
+                        style: TextStyle(color: CustomColors.secondaryColor),
+                      )
                     ],
                   )
                 ],

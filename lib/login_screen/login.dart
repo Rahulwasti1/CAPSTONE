@@ -1,7 +1,9 @@
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/signup.dart';
+import 'package:capstone/navigation_bar.dart';
 import 'package:capstone/screens/widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class UserLogin extends StatefulWidget {
   const UserLogin({super.key});
@@ -124,7 +126,7 @@ class _UserLoginState extends State<UserLogin> {
                     },
                     child: Align(
                       child: Transform.translate(
-                          offset: Offset(123, 0),
+                          offset: Offset(103.w, 0.h),
                           child: Text(
                             "Forgot Password?",
                             style: TextStyle(
@@ -138,12 +140,13 @@ class _UserLoginState extends State<UserLogin> {
               ],
             ),
           ),
-          const SizedBox(height: 25),
+          SizedBox(height: 24.h),
           CustomWidget.customButton(
-            onPressed: () => print("Sign Up"),
-            text: "Sign Up",
-            width: 375,
-            height: 55,
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (context) => UserNavigation())),
+            text: "Sign In",
+            width: 330.w,
+            height: 52.h,
           ),
           const SizedBox(height: 38),
           const Text(
@@ -151,41 +154,36 @@ class _UserLoginState extends State<UserLogin> {
             style: TextStyle(color: Color.fromARGB(255, 158, 158, 158)),
           ),
           const SizedBox(height: 30),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 100),
-            child: Row(
-              children: [
-                customLoginIcon(image: "assets/images/apple.png"),
-                const SizedBox(width: 15),
-                customLoginIcon(image: "assets/images/google.png"),
-                const SizedBox(width: 15),
-                customLoginIcon(image: "assets/images/facebook.png"),
-              ],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              customLoginIcon(image: "assets/images/apple.png"),
+              const SizedBox(width: 15),
+              customLoginIcon(image: "assets/images/google.png"),
+              const SizedBox(width: 15),
+              customLoginIcon(image: "assets/images/facebook.png"),
+            ],
           ),
           const SizedBox(height: 30),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 70),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("Don't have an Account?"),
-                const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => UserSignup()));
-                  },
-                  child: Text(
-                    "Sign Up",
-                    style: TextStyle(
-                        color: CustomColors.primaryColor,
-                        decoration: TextDecoration.underline,
-                        decorationColor: CustomColors.primaryColor),
-                  ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("Don't have an Account?"),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (context) => UserSignup()));
+                },
+                child: Text(
+                  "Sign Up",
+                  style: TextStyle(
+                      color: CustomColors.primaryColor,
+                      decoration: TextDecoration.underline,
+                      decorationColor: CustomColors.primaryColor),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
         ]))));

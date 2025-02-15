@@ -2,6 +2,7 @@ import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/login.dart';
 import 'package:capstone/screens/widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class UserSignup extends StatefulWidget {
   const UserSignup({super.key});
@@ -93,7 +94,7 @@ class _UserSignupState extends State<UserSignup> {
         body: SafeArea(
             child: SingleChildScrollView(
                 child: Column(children: [
-          const SizedBox(height: 60),
+          SizedBox(height: 20.h),
           const Text(
             "Create Account",
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -135,7 +136,7 @@ class _UserSignupState extends State<UserSignup> {
                     },
                     child: Align(
                         child: Transform.translate(
-                      offset: Offset(-80, 0),
+                      offset: Offset(-60.w, 0.h),
                       child: Text.rich(
                         TextSpan(
                           text: "Agree with ",
@@ -160,52 +161,46 @@ class _UserSignupState extends State<UserSignup> {
           CustomWidget.customButton(
             onPressed: () => print("Sign Up"),
             text: "Sign Up",
-            width: 375,
-            height: 55,
+            width: 330.w,
+            height: 52.h,
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32.h),
           const Text(
             "───── Or sign up with ─────",
             style: TextStyle(color: Color.fromARGB(255, 158, 158, 158)),
           ),
-          const SizedBox(height: 30),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 100),
-            child: Row(
-              children: [
-                customLoginIcon(image: "assets/images/apple.png"),
-                const SizedBox(width: 15),
-                customLoginIcon(image: "assets/images/google.png"),
-                const SizedBox(width: 15),
-                customLoginIcon(image: "assets/images/facebook.png"),
-              ],
-            ),
+          SizedBox(height: 29.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              customLoginIcon(image: "assets/images/apple.png"),
+              const SizedBox(width: 15),
+              customLoginIcon(image: "assets/images/google.png"),
+              const SizedBox(width: 15),
+              customLoginIcon(image: "assets/images/facebook.png"),
+            ],
           ),
-          const SizedBox(height: 30),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 70),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("Already have an Account?"),
-                const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => UserLogin()));
-                  },
-                  child: Text(
-                    "Sign In",
-                    style: TextStyle(
-                        color: CustomColors.primaryColor,
-                        decoration: TextDecoration.underline,
-                        decorationColor: CustomColors.primaryColor),
-                  ),
+          SizedBox(height: 30.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("Already have an Account?"),
+              SizedBox(width: 4.w),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (context) => UserLogin()));
+                },
+                child: Text(
+                  "Sign In",
+                  style: TextStyle(
+                      color: CustomColors.primaryColor,
+                      decoration: TextDecoration.underline,
+                      decorationColor: CustomColors.primaryColor),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
         ]))));
   }
 }
