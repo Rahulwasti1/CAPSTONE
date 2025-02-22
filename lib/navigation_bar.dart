@@ -6,6 +6,7 @@ import 'package:capstone/screens/Profile/profile.dart';
 import 'package:capstone/screens/TryOn/tryOn.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:iconsax/iconsax.dart';
 
 class UserNavigation extends StatefulWidget {
   const UserNavigation({super.key});
@@ -28,8 +29,8 @@ class _UserNavigationState extends State<UserNavigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: Container(
-        height: 100.h,
-        width: 62.w,
+        height: 90.h,
+        width: 60.w,
         child: FloatingActionButton(
           onPressed: () {
             setState(() {
@@ -38,11 +39,13 @@ class _UserNavigationState extends State<UserNavigation> {
           },
           shape: CircleBorder(),
           backgroundColor: CustomColors.secondaryColor,
-          child: Icon(
-            Icons.camera_front,
-            size: 32,
-            color: Colors.white,
-          ),
+          child: SizedBox(
+              height: 25, child: Image.asset("assets/images/scanner.png")),
+          // child: Icon(
+          //   Icons.camera_front,
+          //   size: 32,
+          //   color: Colors.white,
+          // ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -63,8 +66,8 @@ class _UserNavigationState extends State<UserNavigation> {
                   });
                 },
                 icon: Icon(
-                  Icons.home,
-                  size: 30,
+                  Iconsax.home,
+                  size: 28,
                   color: currentIndex == 0
                       ? CustomColors.secondaryColor
                       : Colors.grey,
@@ -77,8 +80,8 @@ class _UserNavigationState extends State<UserNavigation> {
                   });
                 },
                 icon: Icon(
-                  Icons.category,
-                  size: 30,
+                  Iconsax.shopping_cart,
+                  size: 28,
                   color: currentIndex == 1
                       ? CustomColors.secondaryColor
                       : Colors.grey,
@@ -91,8 +94,8 @@ class _UserNavigationState extends State<UserNavigation> {
                   });
                 },
                 icon: Icon(
-                  Icons.shopping_cart,
-                  size: 27,
+                  Iconsax.heart,
+                  size: 25,
                   color: currentIndex == 3
                       ? CustomColors.secondaryColor
                       : Colors.grey,
@@ -105,8 +108,8 @@ class _UserNavigationState extends State<UserNavigation> {
                   });
                 },
                 icon: Icon(
-                  Icons.person,
-                  size: 27,
+                  Iconsax.user,
+                  size: 25,
                   color: currentIndex == 4
                       ? CustomColors.secondaryColor
                       : Colors.grey,

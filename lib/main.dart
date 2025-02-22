@@ -1,4 +1,4 @@
-import 'package:capstone/login_screen/onboarding1.dart';
+import 'package:capstone/navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
                 seedColor: const Color.fromARGB(255, 255, 255, 255)),
             useMaterial3: true,
           ),
-          home: Onboarding1(),
+          home: UserNavigation(),
         );
       },
     );
