@@ -1,27 +1,23 @@
+import 'package:capstone/admin/Home/admin_home.dart';
+import 'package:capstone/admin/Profile/admin_profile.dart';
+import 'package:capstone/admin/addProduct/addProduct.dart';
 import 'package:capstone/constants/colors.dart';
-import 'package:capstone/screens/Cart/cart.dart';
-import 'package:capstone/screens/Categories/categories.dart';
-import 'package:capstone/screens/Home/userhome.dart';
-import 'package:capstone/screens/Profile/profile.dart';
-import 'package:capstone/screens/TryOn/tryOn.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:iconsax/iconsax.dart';
 
-class UserNavigation extends StatefulWidget {
-  const UserNavigation({super.key});
+class AdminNavbar extends StatefulWidget {
+  const AdminNavbar({super.key});
 
   @override
-  State<UserNavigation> createState() => _UserNavigationState();
+  State<AdminNavbar> createState() => _AdminNavbarState();
 }
 
-class _UserNavigationState extends State<UserNavigation> {
+class _AdminNavbarState extends State<AdminNavbar> {
   List screens = [
-    Userhome(),
-    UserCategories(),
-    UserTryOn(),
-    UserCart(),
-    UserProfile(),
+    AdminHome(),
+    AdminAddProduct(),
+    AdminProfile(),
   ];
   int currentIndex = 0;
 
@@ -34,18 +30,16 @@ class _UserNavigationState extends State<UserNavigation> {
         child: FloatingActionButton(
           onPressed: () {
             setState(() {
-              currentIndex = 2;
+              currentIndex = 1;
             });
           },
           shape: CircleBorder(),
           backgroundColor: CustomColors.secondaryColor,
-          child: SizedBox(
-              height: 25, child: Image.asset("assets/images/scanner.png")),
-          // child: Icon(
-          //   Icons.camera_front,
-          //   size: 32,
-          //   color: Colors.white,
-          // ),
+          child: Icon(
+            Icons.add,
+            size: 32,
+            color: Colors.white,
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -76,44 +70,16 @@ class _UserNavigationState extends State<UserNavigation> {
             IconButton(
                 onPressed: () {
                   setState(() {
-                    currentIndex = 1;
-                  });
-                },
-                icon: Icon(
-                  Iconsax.shopping_cart,
-                  size: 28,
-                  color: currentIndex == 1
-                      ? CustomColors.secondaryColor
-                      : Colors.grey,
-                )),
-            SizedBox(width: 75),
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    currentIndex = 3;
-                  });
-                },
-                icon: Icon(
-                  Iconsax.heart,
-                  size: 25,
-                  color: currentIndex == 3
-                      ? CustomColors.secondaryColor
-                      : Colors.grey,
-                )),
-            SizedBox(width: 10.w),
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    currentIndex = 4;
+                    currentIndex = 2;
                   });
                 },
                 icon: Icon(
                   Iconsax.user,
-                  size: 25,
-                  color: currentIndex == 4
+                  size: 28,
+                  color: currentIndex == 2
                       ? CustomColors.secondaryColor
                       : Colors.grey,
-                ))
+                )),
           ],
         ),
       ),

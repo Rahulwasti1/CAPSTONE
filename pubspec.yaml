@@ -39,6 +39,9 @@ dependencies:
   iconsax: ^0.0.8
   multi_select_flutter: ^4.1.3
   flutter_colorpicker: ^1.0.3
+  image_picker: ^1.1.2
+  multi_image_picker_view: ^2.0.1
+  permission_handler: ^10.0.0
 
 dev_dependencies:
   flutter_test:
