@@ -1,3 +1,4 @@
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:multi_image_picker_view/multi_image_picker_view.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,7 +13,7 @@ class Imagepicker extends StatefulWidget {
 class _ImagepickerState extends State<Imagepicker> {
   final ImagePicker _picker = ImagePicker();
   final controller = MultiImagePickerController(
-    maxImages: 10,
+    maxImages: 5,
     images: <ImageFile>[],
     picker: (bool allowMultiple) async {
       return await pickConvertedImages(allowMultiple);
@@ -38,8 +39,7 @@ class _ImagepickerState extends State<Imagepicker> {
       return [];
     }
 
-    // Convert XFile to ImageFile (used by MultiImagePickerView)
-    // Convert XFile to ImageFile with name and extension
+    // Converting XFile to ImageFile with name and extension
     List<ImageFile> imageFiles = pickedFiles.map((file) {
       // Get file name and extension
       String fileName = file.name;
@@ -57,12 +57,25 @@ class _ImagepickerState extends State<Imagepicker> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 420,
-      padding: EdgeInsets.all(10),
-      child: MultiImagePickerView(
-        controller: controller,
-      ),
-    );
+    return Wrap(children: [
+      Padding(
+          padding: EdgeInsets.zero,
+          child: DottedBorder(
+            radius: Radius.circular(10),
+            color: Color.fromARGB(255, 195, 229, 236),
+            borderType: BorderType.RRect, // round border
+            dashPattern: const [6, 3],
+            child: // thickness and number of line), ),
+                Container(
+              decoration: BoxDecoration(
+                  color: Color(0xFFcde7ec),
+                  borderRadius: BorderRadius.circular(10)),
+              padding: EdgeInsets.all(10),
+              child: MultiImagePickerView(
+                controller: controller,
+              ),
+            ),
+          )),
+    ]);
   }
 }

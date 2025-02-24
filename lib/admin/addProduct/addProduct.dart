@@ -99,10 +99,10 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                     InputTextField(
                       labelText: "Enter Size",
                     ),
-                    SizedBox(height: 15.h),
+                    SizedBox(height: 20.h),
                     Imagepicker(),
 
-                    SizedBox(height: 30.h),
+                    SizedBox(height: 20.h),
                     ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(
