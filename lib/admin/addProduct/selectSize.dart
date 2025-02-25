@@ -15,15 +15,15 @@ class _AddsizeState extends State<Addsize> {
 
   // If multiple same size user tries to select
 
-  void toggleSize(String size) {
-    setState(() {
-      if (selectedSize.contains(size)) {
-        selectedSize.remove(size); // Remove if already selected
-      } else {
-        selectedSize.add(size); // Add if not selected
-      }
-    });
-  }
+  // void toggleSize(String size) {
+  //   setState(() {
+  //     if (selectedSize.contains(size)) {
+  //       selectedSize.remove(size); // Remove if already selected
+  //     } else {
+  //       selectedSize.add(size); // Add if not selected
+  //     }
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {

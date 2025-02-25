@@ -15,10 +15,16 @@ class _UserSignupState extends State<UserSignup> {
   bool isChecked = false;
   bool _isObsecure = true;
 
+  // controller
+  TextEditingController nameContorller = TextEditingController();
+  TextEditingController emailContorller = TextEditingController();
+  TextEditingController passwordContorller = TextEditingController();
+
   Widget customTextField({
     String? text,
     required String hintText,
     bool isPassword = false,
+    required TextEditingController controller,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -32,6 +38,7 @@ class _UserSignupState extends State<UserSignup> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 27),
           child: TextField(
+            controller: controller,
             obscureText: isPassword ? _isObsecure : false,
             decoration: InputDecoration(
               hintText: hintText,
@@ -106,15 +113,21 @@ class _UserSignupState extends State<UserSignup> {
             style: TextStyle(color: Color.fromARGB(255, 97, 96, 96)),
           ),
           const SizedBox(height: 20),
-          customTextField(text: "Name", hintText: "Ex. Rahul Wasti"),
-          const SizedBox(height: 20),
-          customTextField(text: "Email", hintText: "example@gmail.com"),
+          customTextField(
+              text: "Name",
+              hintText: "Ex. Rahul Wasti",
+              controller: nameContorller),
           const SizedBox(height: 20),
           customTextField(
-            text: "Password",
-            hintText: "***************",
-            isPassword: true,
-          ),
+              text: "Email",
+              hintText: "example@gmail.com",
+              controller: emailContorller),
+          const SizedBox(height: 20),
+          customTextField(
+              text: "Password",
+              hintText: "***************",
+              isPassword: true,
+              controller: passwordContorller),
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 13),

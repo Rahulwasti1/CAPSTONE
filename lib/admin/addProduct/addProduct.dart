@@ -100,8 +100,14 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                     InputTextField(
                       labelText: "Enter Size",
                     ),
+                    SizedBox(height: 15.h),
+                    InputTextField(
+                      labelText: "Enter Price",
+                    ),
                     SizedBox(height: 20.h),
-                    Imagepicker(),
+                    Imagepicker(
+                      imageFiles: [],
+                    ),
 
                     SizedBox(height: 20.h),
                     ElevatedButton(

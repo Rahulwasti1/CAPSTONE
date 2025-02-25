@@ -1,5 +1,6 @@
 import 'package:capstone/login_screen/login.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class Onboarding1 extends StatelessWidget {
   const Onboarding1({super.key});
@@ -43,7 +44,7 @@ class Onboarding1 extends StatelessWidget {
                         },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Color(0xFFff4647),
-                            minimumSize: Size(400, 50)),
+                            minimumSize: Size(400.w, 50.h)),
                         child: Text(
                           "Let's Get Started",
                           style: TextStyle(color: Colors.white, fontSize: 16),
@@ -60,7 +61,10 @@ class Onboarding1 extends StatelessWidget {
                           SizedBox(width: 4),
                           GestureDetector(
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => UserLogin()));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => UserLogin()));
                             },
                             child: Text(
                               "Sign In",

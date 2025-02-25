@@ -16,9 +16,14 @@ class _UserLoginState extends State<UserLogin> {
   bool isChecked = false;
   bool _isObsecure = true;
 
+  // Controller
+  TextEditingController emailContorller = TextEditingController();
+  TextEditingController passwordContorller = TextEditingController();
+
   Widget customTextField({
     String? text,
     required String hintText,
+    required TextEditingController controller,
     bool isPassword = false,
   }) {
     return Column(
@@ -33,6 +38,7 @@ class _UserLoginState extends State<UserLogin> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 27),
           child: TextField(
+            controller: controller,
             obscureText: isPassword ? _isObsecure : false,
             decoration: InputDecoration(
               hintText: hintText,
@@ -107,13 +113,16 @@ class _UserLoginState extends State<UserLogin> {
             style: TextStyle(color: Color.fromARGB(255, 97, 96, 96)),
           ),
           const SizedBox(height: 40),
-          customTextField(text: "Email", hintText: "example@gmail.com"),
+          customTextField(
+              text: "Email",
+              hintText: "example@gmail.com",
+              controller: emailContorller),
           const SizedBox(height: 20),
           customTextField(
-            text: "Password",
-            hintText: "***************",
-            isPassword: true,
-          ),
+              text: "Password",
+              hintText: "***************",
+              isPassword: true,
+              controller: passwordContorller),
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 13),
