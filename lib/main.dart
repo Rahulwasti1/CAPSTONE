@@ -1,6 +1,6 @@
-import 'package:capstone/admin/admin_navbar.dart';
-import 'package:capstone/login_screen/onboarding1.dart';
+import 'package:capstone/login_screen/login.dart';
 import 'package:capstone/navigation_bar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -30,7 +30,27 @@ class MyApp extends StatelessWidget {
                 seedColor: const Color.fromARGB(255, 255, 255, 255)),
             useMaterial3: true,
           ),
-          home: Onboarding1(),
+          // for keeping user login until logout
+
+          home: StreamBuilder(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.active) {
+                if (snapshot.hasData) {
+                  return UserNavigation(); // If user is logged in, navigate to UserNavigation
+                } else {
+                  return UserLogin(); // If user is NOT logged in, show login screen
+                }
+              }
+
+              // While checking auth state, show a loading indicator
+              return Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            },
+          ),
         );
       },
     );

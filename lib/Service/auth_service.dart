@@ -12,8 +12,9 @@ class AuthService {
     required String name,
   }) async {
     String res = "Some error Occured";
-    if (email.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
-      try {
+
+    try {
+      if (email.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
         UserCredential credential = await _auth.createUserWithEmailAndPassword(
             email: email, password: password);
 
@@ -25,9 +26,35 @@ class AuthService {
           "email": email,
           "password": password
         });
-      } catch (err) {
-        return err.toString();
+        res = "success";
+      } else {
+        res = "Please fill all the fields required";
       }
+    } catch (err) {
+      return err.toString();
+    }
+    return res;
+  }
+
+  // for login
+
+  Future<String> loginUser({
+    required String email,
+    required String password,
+  }) async {
+    String res = "Some error Occured";
+
+    try {
+      if (email.isNotEmpty && password.isNotEmpty) {
+        await _auth.signInWithEmailAndPassword(
+            email: email, password: password);
+
+        res = "success";
+      } else {
+        res = "Please fill all the fields required";
+      }
+    } catch (err) {
+      return err.toString();
     }
     return res;
   }

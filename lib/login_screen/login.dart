@@ -1,7 +1,9 @@
+import 'package:capstone/Service/auth_service.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/signup.dart';
 import 'package:capstone/navigation_bar.dart';
 import 'package:capstone/screens/widget.dart';
+import 'package:capstone/widget/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -15,6 +17,37 @@ class UserLogin extends StatefulWidget {
 class _UserLoginState extends State<UserLogin> {
   bool isChecked = false;
   bool _isObsecure = true;
+  bool isLoading = false;
+  final AuthService _authService = AuthService();
+
+  // Signup function to handle user registration
+
+  void _login() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    // calling the method
+    final result = await _authService.loginUser(
+      email: emailContorller.text,
+      password: passwordContorller.text,
+    );
+
+    if (result == "success") {
+      showSnackBar(context, "Login Successful");
+
+      // navigating to the next screen with the message
+
+      Navigator.push(
+          context, MaterialPageRoute(builder: (context) => UserNavigation()));
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+      showSnackBar(context, "Login Failed $result");
+    }
+    ;
+  }
 
   // Controller
   TextEditingController emailContorller = TextEditingController();
@@ -149,14 +182,24 @@ class _UserLoginState extends State<UserLogin> {
               ],
             ),
           ),
-          SizedBox(height: 24.h),
-          CustomWidget.customButton(
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (context) => UserNavigation())),
-            text: "Sign In",
-            width: 330.w,
-            height: 52.h,
-          ),
+          SizedBox(height: 20.h),
+          isLoading
+              ?  Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 25),
+                      child: CustomWidget.customButton(
+                        onPressed:
+                            _login, // Removed extra arrow function "() => _signUp"
+                        text: "Sign Up",
+                        width: double.infinity,
+                        height: 52.h,
+                      ),
+                    ),
+                  ],
+                ),
           const SizedBox(height: 38),
           const Text(
             "───── Or sign in with ─────",
