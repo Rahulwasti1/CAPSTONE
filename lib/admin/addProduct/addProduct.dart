@@ -1,6 +1,5 @@
 import 'package:capstone/admin/addProduct/imagePicker.dart';
 import 'package:capstone/admin/addProduct/selectColor.dart';
-import 'package:capstone/admin/addProduct/selectSize.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -39,7 +38,9 @@ class _AdminAddProductState extends State<AdminAddProduct> {
               Row(
                 children: [
                   IconButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
                       style: IconButton.styleFrom(
                           side: BorderSide(
                               width: 2.w,
@@ -67,8 +68,8 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                     ),
                     SizedBox(height: 15.h),
                     SizedBox(
-                      width: 360,
-                      height: 55,
+                      width: double.infinity,
+                      height: 50.h,
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),

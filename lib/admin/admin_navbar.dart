@@ -24,6 +24,7 @@ class _AdminNavbarState extends State<AdminNavbar> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       floatingActionButton: SizedBox(
         height: 90.h,
         width: 60.w,

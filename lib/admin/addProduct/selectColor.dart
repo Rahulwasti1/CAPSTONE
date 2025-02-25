@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SelectAColor extends StatefulWidget {
   const SelectAColor({super.key});
@@ -43,11 +44,11 @@ class _SelectAColorState extends State<SelectAColor> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 55,
-          width: 360,
+          height: 50.h,
+          width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 243, 241, 241),
+                backgroundColor: const Color.fromARGB(255, 251, 250, 250),
                 elevation: 0.1,
                 shape: RoundedRectangleBorder(
                     side: BorderSide(width: 1, color: Colors.grey.shade400),
