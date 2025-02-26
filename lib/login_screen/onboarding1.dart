@@ -1,3 +1,4 @@
+import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -18,7 +19,7 @@ class Onboarding1 extends StatelessWidget {
               Text(
                 "Smart Shopping Starts Here",
                 style: TextStyle(
-                    color: Colors.red,
+                    color: CustomColors.secondaryColor,
                     fontSize: 22,
                     fontWeight: FontWeight.bold),
               ),
@@ -43,7 +44,7 @@ class Onboarding1 extends StatelessWidget {
                           print("Button Clicked");
                         },
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFFff4647),
+                            backgroundColor: CustomColors.secondaryColor,
                             minimumSize: Size(400.w, 50.h)),
                         child: Text(
                           "Let's Get Started",
@@ -70,9 +71,9 @@ class Onboarding1 extends StatelessWidget {
                               "Sign In",
                               style: TextStyle(
                                   fontSize: 16,
-                                  color: Color(0xFFff4647),
+                                  color: CustomColors.secondaryColor,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: Color(0xFFff4647)),
+                                  decorationColor: CustomColors.secondaryColor),
                             ),
                           )
                         ],

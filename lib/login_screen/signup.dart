@@ -169,7 +169,7 @@ class _UserSignupState extends State<UserSignup> {
               children: [
                 Checkbox(
                   value: isChecked,
-                  activeColor: CustomColors.primaryColor,
+                  activeColor: CustomColors.secondaryColor,
                   onChanged: (bool? newValue) {
                     setState(() {
                       isChecked = newValue ?? false;
@@ -191,9 +191,9 @@ class _UserSignupState extends State<UserSignup> {
                             TextSpan(
                               text: "Terms & Conditions",
                               style: TextStyle(
-                                  color: CustomColors.primaryColor,
+                                  color: CustomColors.secondaryColor,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: CustomColors.primaryColor),
+                                  decorationColor: CustomColors.secondaryColor),
                             ),
                           ],
                         ),
@@ -251,9 +251,9 @@ class _UserSignupState extends State<UserSignup> {
                 child: Text(
                   "Sign In",
                   style: TextStyle(
-                      color: CustomColors.primaryColor,
+                      color: CustomColors.secondaryColor,
                       decoration: TextDecoration.underline,
-                      decorationColor: CustomColors.primaryColor),
+                      decorationColor: CustomColors.secondaryColor),
                 ),
               ),
             ],

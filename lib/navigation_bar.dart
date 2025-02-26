@@ -28,6 +28,7 @@ class _UserNavigationState extends State<UserNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       floatingActionButton: SizedBox(
         height: 90.h,
         width: 60.w,
@@ -50,71 +51,73 @@ class _UserNavigationState extends State<UserNavigation> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-      bottomNavigationBar: BottomAppBar(
-        elevation: 1,
-        height: 50,
-        shape: CircularNotchedRectangle(),
-        notchMargin: 10,
-        color: const Color.fromARGB(255, 252, 252, 252),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    currentIndex = 0;
-                  });
-                },
-                icon: Icon(
-                  Iconsax.home,
-                  size: 28,
-                  color: currentIndex == 0
-                      ? CustomColors.secondaryColor
-                      : Colors.grey,
-                )),
-            SizedBox(width: 10.w),
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    currentIndex = 1;
-                  });
-                },
-                icon: Icon(
-                  Iconsax.shopping_cart,
-                  size: 28,
-                  color: currentIndex == 1
-                      ? CustomColors.secondaryColor
-                      : Colors.grey,
-                )),
-            SizedBox(width: 75),
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    currentIndex = 3;
-                  });
-                },
-                icon: Icon(
-                  Iconsax.heart,
-                  size: 25,
-                  color: currentIndex == 3
-                      ? CustomColors.secondaryColor
-                      : Colors.grey,
-                )),
-            SizedBox(width: 10.w),
-            IconButton(
-                onPressed: () {
-                  setState(() {
-                    currentIndex = 4;
-                  });
-                },
-                icon: Icon(
-                  Iconsax.user,
-                  size: 25,
-                  color: currentIndex == 4
-                      ? CustomColors.secondaryColor
-                      : Colors.grey,
-                ))
-          ],
+      bottomNavigationBar: SingleChildScrollView(
+        child: BottomAppBar(
+          elevation: 1,
+          height: 50,
+          shape: CircularNotchedRectangle(),
+          notchMargin: 10,
+          color: const Color.fromARGB(255, 252, 252, 252),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(
+                  onPressed: () {
+                    setState(() {
+                      currentIndex = 0;
+                    });
+                  },
+                  icon: Icon(
+                    Iconsax.home,
+                    size: 28,
+                    color: currentIndex == 0
+                        ? CustomColors.secondaryColor
+                        : Colors.grey,
+                  )),
+              SizedBox(width: 10.w),
+              IconButton(
+                  onPressed: () {
+                    setState(() {
+                      currentIndex = 1;
+                    });
+                  },
+                  icon: Icon(
+                    Iconsax.shopping_cart,
+                    size: 28,
+                    color: currentIndex == 1
+                        ? CustomColors.secondaryColor
+                        : Colors.grey,
+                  )),
+              SizedBox(width: 75),
+              IconButton(
+                  onPressed: () {
+                    setState(() {
+                      currentIndex = 3;
+                    });
+                  },
+                  icon: Icon(
+                    Iconsax.heart,
+                    size: 25,
+                    color: currentIndex == 3
+                        ? CustomColors.secondaryColor
+                        : Colors.grey,
+                  )),
+              SizedBox(width: 10.w),
+              IconButton(
+                  onPressed: () {
+                    setState(() {
+                      currentIndex = 4;
+                    });
+                  },
+                  icon: Icon(
+                    Iconsax.user,
+                    size: 25,
+                    color: currentIndex == 4
+                        ? CustomColors.secondaryColor
+                        : Colors.grey,
+                  ))
+            ],
+          ),
         ),
       ),
       body: screens[currentIndex],

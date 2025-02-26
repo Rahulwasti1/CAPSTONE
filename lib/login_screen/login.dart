@@ -172,9 +172,9 @@ class _UserLoginState extends State<UserLogin> {
                           child: Text(
                             "Forgot Password?",
                             style: TextStyle(
-                                color: CustomColors.primaryColor,
+                                color: CustomColors.secondaryColor,
                                 decoration: TextDecoration.underline,
-                                decorationColor: CustomColors.primaryColor),
+                                decorationColor: CustomColors.secondaryColor),
                           )),
                     ),
                   ),
@@ -184,7 +184,7 @@ class _UserLoginState extends State<UserLogin> {
           ),
           SizedBox(height: 20.h),
           isLoading
-              ?  Center(child: CircularProgressIndicator())
+              ? Center(child: CircularProgressIndicator())
               : Column(
                   children: [
                     const SizedBox(height: 10),
@@ -230,9 +230,9 @@ class _UserLoginState extends State<UserLogin> {
                 child: Text(
                   "Sign Up",
                   style: TextStyle(
-                      color: CustomColors.primaryColor,
+                      color: CustomColors.secondaryColor,
                       decoration: TextDecoration.underline,
-                      decorationColor: CustomColors.primaryColor),
+                      decorationColor: CustomColors.secondaryColor),
                 ),
               ),
             ],

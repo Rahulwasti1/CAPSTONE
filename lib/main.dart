@@ -1,5 +1,6 @@
 import 'package:capstone/login_screen/login.dart';
 import 'package:capstone/navigation_bar.dart';
+import 'package:capstone/screens/Profile/profile.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -32,25 +33,27 @@ class MyApp extends StatelessWidget {
           ),
           // for keeping user login until logout
 
-          home: StreamBuilder(
-            stream: FirebaseAuth.instance.authStateChanges(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.active) {
-                if (snapshot.hasData) {
-                  return UserNavigation(); // If user is logged in, navigate to UserNavigation
-                } else {
-                  return UserLogin(); // If user is NOT logged in, show login screen
-                }
-              }
+          home: UserProfile(),
 
-              // While checking auth state, show a loading indicator
-              return Scaffold(
-                body: Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            },
-          ),
+          // home: StreamBuilder(
+          //   stream: FirebaseAuth.instance.authStateChanges(),
+          //   builder: (context, snapshot) {
+          //     if (snapshot.connectionState == ConnectionState.active) {
+          //       if (snapshot.hasData) {
+          //         return UserNavigation(); // If user is logged in, navigate to UserNavigation
+          //       } else {
+          //         return UserLogin(); // If user is NOT logged in, show login screen
+          //       }
+          //     }
+
+          //     // While checking auth state, show a loading indicator
+          //     return Scaffold(
+          //       body: Center(
+          //         child: CircularProgressIndicator(),
+          //       ),
+          //     );
+          //   },
+          // ),
         );
       },
     );

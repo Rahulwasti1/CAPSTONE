@@ -1,3 +1,4 @@
+import 'package:capstone/constants/colors.dart';
 import 'package:flutter/material.dart';
 
 class CustomWidget {
@@ -10,7 +11,7 @@ class CustomWidget {
     return ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFFff4647),
+            backgroundColor: CustomColors.secondaryColor,
             minimumSize: Size(width, height)),
         child: Text(
           text,
