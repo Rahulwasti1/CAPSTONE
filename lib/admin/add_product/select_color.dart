@@ -3,13 +3,18 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SelectAColor extends StatefulWidget {
-  const SelectAColor({super.key});
+    final Function(List<Color>)onColorSelected ; // creating a function to send selected colors 
+
+
+  const SelectAColor({super.key, required this.onColorSelected});
 
   @override
   _SelectAColorState createState() => _SelectAColorState();
 }
 
 class _SelectAColorState extends State<SelectAColor> {
+
+
   List<Color> selectedColors = [];
 
   void pickCustomColor() {
@@ -29,6 +34,7 @@ class _SelectAColorState extends State<SelectAColor> {
               setState(() {
                 selectedColors.add(pickedColor);
               });
+              widget.onColorSelected(selectedColors);
               Navigator.pop(context);
             },
             child: Text("Add"),

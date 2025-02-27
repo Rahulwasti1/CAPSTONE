@@ -1,4 +1,6 @@
+import 'package:capstone/admin/admin_navbar.dart';
 import 'package:capstone/login_screen/login.dart';
+import 'package:capstone/login_screen/onboarding1.dart';
 import 'package:capstone/navigation_bar.dart';
 import 'package:capstone/screens/Profile/profile.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -33,7 +35,7 @@ class MyApp extends StatelessWidget {
           ),
           // for keeping user login until logout
 
-          home: UserProfile(),
+          home: AdminNavbar(),
 
           // home: StreamBuilder(
           //   stream: FirebaseAuth.instance.authStateChanges(),
@@ -42,7 +44,7 @@ class MyApp extends StatelessWidget {
           //       if (snapshot.hasData) {
           //         return UserNavigation(); // If user is logged in, navigate to UserNavigation
           //       } else {
-          //         return UserLogin(); // If user is NOT logged in, show login screen
+          //         return Onboarding1(); // If user is NOT logged in, show login screen
           //       }
           //     }
 

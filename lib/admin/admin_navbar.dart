@@ -1,6 +1,6 @@
-import 'package:capstone/admin/Home/admin_home.dart';
-import 'package:capstone/admin/Profile/admin_profile.dart';
-import 'package:capstone/admin/addProduct/addProduct.dart';
+import 'package:capstone/admin/home/admin_home.dart';
+import 'package:capstone/admin/profile/admin_profile.dart';
+import 'package:capstone/admin/add_product/add_product.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';

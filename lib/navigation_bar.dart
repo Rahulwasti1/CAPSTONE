@@ -1,7 +1,7 @@
 import 'package:capstone/constants/colors.dart';
-import 'package:capstone/screens/Cart/cart.dart';
-import 'package:capstone/screens/Categories/categories.dart';
-import 'package:capstone/screens/Home/userhome.dart';
+import 'package:capstone/screens/cart/cart.dart';
+import 'package:capstone/screens/categories/categories.dart';
+import 'package:capstone/screens/home/userhome.dart';
 import 'package:capstone/screens/Profile/profile.dart';
 import 'package:capstone/screens/TryOn/tryOn.dart';
 import 'package:flutter/material.dart';

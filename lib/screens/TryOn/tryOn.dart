@@ -1,4 +1,4 @@
-import 'package:capstone/widget/User_AppBar.dart';
+import 'package:capstone/widget/user_appbar.dart';
 import 'package:flutter/material.dart';
 
 class UserTryOn extends StatefulWidget {

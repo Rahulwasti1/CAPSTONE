@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class AuthService {
+class AdminAuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<String> signUpUser({
+  Future<String> signUpAdmin({
     required String email,
     required String password,
     required String name,
@@ -20,7 +20,7 @@ class AuthService {
 
         // to store user data in firestore
 
-        await _firestore.collection("userData").doc(credential.user!.uid).set({
+        await _firestore.collection("adminData").doc(credential.user!.uid).set({
           "user": credential.user!.uid,
           "name": name,
           "email": email,
@@ -37,7 +37,7 @@ class AuthService {
 
   // for login
 
-  Future<String> loginUser({
+  Future<String> loginAdmin({
     required String email,
     required String password,
   }) async {

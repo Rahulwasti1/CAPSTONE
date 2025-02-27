@@ -1,4 +1,5 @@
 import 'package:capstone/main.dart';
+import 'package:capstone/service/adding_product.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -12,6 +13,7 @@ class Addsize extends StatefulWidget {
 class _AddsizeState extends State<Addsize> {
   List<String> sizeOptions = ["S", "M", "L", "XL", "XXL"];
   List<String> selectedSize = [];
+
 
   // If multiple same size user tries to select
 

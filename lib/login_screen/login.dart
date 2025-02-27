@@ -1,4 +1,6 @@
-import 'package:capstone/Service/auth_service.dart';
+import 'package:capstone/admin/admin_navbar.dart';
+import 'package:capstone/service/admin_auth.dart';
+import 'package:capstone/service/auth_service.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/signup.dart';
 import 'package:capstone/navigation_bar.dart';
@@ -19,6 +21,7 @@ class _UserLoginState extends State<UserLogin> {
   bool _isObsecure = true;
   bool isLoading = false;
   final AuthService _authService = AuthService();
+  final AdminAuthService _adminAuthService = AdminAuthService();
 
   // Signup function to handle user registration
 
@@ -27,12 +30,19 @@ class _UserLoginState extends State<UserLogin> {
       isLoading = true;
     });
 
-    // calling the method
+    // calling the method for user
     final result = await _authService.loginUser(
       email: emailContorller.text,
       password: passwordContorller.text,
     );
 
+    // calling the method for admin
+    final adminResult = await _adminAuthService.loginAdmin(
+      email: emailContorller.text,
+      password: passwordContorller.text,
+    );
+
+    // If user login is successful
     if (result == "success") {
       showSnackBar(context, "Login Successful");
 
@@ -40,10 +50,16 @@ class _UserLoginState extends State<UserLogin> {
 
       Navigator.push(
           context, MaterialPageRoute(builder: (context) => UserNavigation()));
+    }
+    // If admin login is successful
+    else if (adminResult == "success") {
+      showSnackBar(context, "Login Successful");
+
+      // navigating to the next screen with the message
+
+      Navigator.push(
+          context, MaterialPageRoute(builder: (context) => AdminNavbar()));
     } else {
-      setState(() {
-        isLoading = false;
-      });
       showSnackBar(context, "Login Failed $result");
     }
     ;

@@ -1,4 +1,5 @@
 import 'package:capstone/constants/colors.dart';
+import 'package:capstone/screens/home/profile_avatar.dart';
 import 'package:capstone/screens/Profile/profile.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,31 +9,36 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 class Homeappbar extends StatefulWidget {
   const Homeappbar({super.key});
 
+  static String? cachedUsername;
+
   @override
   State<Homeappbar> createState() => _HomeappbarState();
 }
 
 class _HomeappbarState extends State<Homeappbar> {
   String username = "";
-  bool isUsernameLoaded = false; //  tracking if the username is loaded
 
-  // Fetching username form firebase
   Future<void> _getUsername() async {
-    if (isUsernameLoaded)
-      return; // Skipping fetching the username is already loaded
-    User? user = FirebaseAuth.instance.currentUser;
+    // Check if the username is already cached.
+    if (UserProfile.cachedUsername != null) {
+      setState(() {
+        username = UserProfile.cachedUsername!;
+      });
+      return;
+    }
 
+    User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      // Fetching the user document from Firestore
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('userData')
           .doc(user.uid)
           .get();
 
-      // Fetching the 'name' field from the document
+      String name = userDoc['name'] ?? 'User';
+      // Cache the username.
+      UserProfile.cachedUsername = name;
       setState(() {
-        username = userDoc['name'] ?? 'User';
-        isUsernameLoaded = true;
+        username = name;
       });
     }
   }
@@ -51,21 +57,22 @@ class _HomeappbarState extends State<Homeappbar> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => UserProfile()));
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: CustomColors.secondaryColor,
-                  image: DecorationImage(
-                      image: AssetImage("assets/images/profile.svg"),
-                      fit: BoxFit.fill)),
-              height: 48.h,
-              width: 50.w,
-            ),
-          ),
+              onTap: () {
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (context) => UserProfile()));
+              },
+              child: profileAvatar(circle: 27)
+              // child: Container(
+              //   decoration: BoxDecoration(
+              //       borderRadius: BorderRadius.circular(10),
+              //       color: CustomColors.secondaryColor,
+              //       image: DecorationImage(
+              //           image: AssetImage("assets/images/profile.svg"),
+              //           fit: BoxFit.fill)),
+              //   height: 48.h,
+              //   width: 50.w,
+              // ),
+              ),
 
           SizedBox(width: 8.w), // Space between image box and text
           Column(
