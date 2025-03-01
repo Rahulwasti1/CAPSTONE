@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CategotyAdmin extends StatefulWidget {
-  const CategotyAdmin({super.key});
+  final Function(String?) onCategorySelected;
+  const CategotyAdmin({super.key, required this.onCategorySelected});
 
   @override
   State<CategotyAdmin> createState() => _CategotyAdminState();
@@ -42,6 +43,7 @@ class _CategotyAdminState extends State<CategotyAdmin> {
                 setState(() {
                   selectedValue = newValue;
                 });
+                widget.onCategorySelected(newValue);
               }),
         ),
       ),

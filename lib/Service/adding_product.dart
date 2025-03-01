@@ -8,6 +8,41 @@ class AddingProduct {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Method to add product to Firestore
+  // Future<String> addProduct({
+  //   required String title,
+  //   required String description,
+  //   required String size,
+  //   required List<String> color,
+  //   required String category,
+  //   required double price,
+  //   required List<XFile> image, // Pass image as XFile
+  // }) async {
+  //   String res = "Some error occurred";
+
+  //   try {
+  //     // Convert the image to Base64 string
+  //     String base64Image = await _convertImageToBase64(XFile as XFile);
+
+  //     // Adding product data to Firestore
+  //     await _firestore.collection('admin_products').add({
+  //       'title': title,
+  //       'description': description,
+  //       'sizes': size,
+  //       'colors': color,
+  //       'category': category,
+  //       'price': price,
+  //       'imageURL': base64Image, // Storing the Base64 image string in Firestore
+  //       'addedByAdmin': Timestamp.now(), // Timestamp of product creation
+  //     });
+
+  //     res = "Product added successfully!";
+  //   } catch (e) {
+  //     res = "Error adding product: $e";
+  //   }
+
+  //   return res;
+  // }
+
   Future<String> addProduct({
     required String title,
     required String description,
@@ -15,13 +50,17 @@ class AddingProduct {
     required List<String> color,
     required String category,
     required double price,
-    required List<XFile> image, // Pass image as XFile
+    required List<XFile> images, // Pass images as List<XFile>
   }) async {
     String res = "Some error occurred";
 
     try {
-      // Convert the image to Base64 string
-      String base64Image = await _convertImageToBase64(XFile as XFile);
+      // Convert each image to Base64 string
+      List<String> base64Images = [];
+      for (var image in images) {
+        String base64Image = await _convertImageToBase64(image);
+        base64Images.add(base64Image);
+      }
 
       // Adding product data to Firestore
       await _firestore.collection('admin_products').add({
@@ -31,7 +70,8 @@ class AddingProduct {
         'colors': color,
         'category': category,
         'price': price,
-        'imageURL': base64Image, // Storing the Base64 image string in Firestore
+        'imageURLs':
+            base64Images, // Storing the Base64 image strings in Firestore
         'addedByAdmin': Timestamp.now(), // Timestamp of product creation
       });
 

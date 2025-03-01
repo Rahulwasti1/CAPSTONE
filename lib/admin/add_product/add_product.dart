@@ -24,6 +24,8 @@ class _AdminAddProductState extends State<AdminAddProduct> {
 
   List<Color> selectedColors = []; // To hold the selected colors
   List<XFile> selectedImages = []; // To store selected images
+  String? selectedCategory;
+
 // Function to add product
   Future<void> _addingProduct() async {
     if (_formKey.currentState?.validate() ?? false) {
@@ -38,15 +40,15 @@ class _AdminAddProductState extends State<AdminAddProduct> {
       // Convert price to double
       double price = double.tryParse(priceContorller.text) ?? 0.0;
 
-      // Call addProduct method and pass the selectedImages as List<XFile>
+      // Call addProduct method and pass the data as parameters
       final result = await _addProduct.addProduct(
         title: titleContorller.text,
         description: descriptionController.text,
-        category: categoryContorller.text,
+        category: selectedCategory ?? '',
         price: price,
         color: colorData,
         size: sizeContorller.text,
-        image: selectedImages, // Ensure you're passing List<XFile>
+        images: selectedImages, // Pass the selected images
       );
 
       setState(() {
@@ -54,18 +56,22 @@ class _AdminAddProductState extends State<AdminAddProduct> {
       });
 
       // Show success or error message using a SnackBar
-      if (result == "Product added successfully!") {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result)),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result)),
+      );
 
+      // Reset the form and clear all input fields if the product is added successfully
       if (result == "Product added successfully!") {
-        _formKey.currentState?.reset();
+        _formKey.currentState?.reset(); // Reset the form
+        titleContorller.clear(); // Clear title field
+        descriptionController.clear(); // Clear description field
+        categoryContorller.clear(); // Clear category field
+        sizeContorller.clear(); // Clear size field
+        priceContorller.clear(); // Clear price field
+        setState(() {
+          selectedColors = []; // Clear selected colors
+          selectedImages = []; // Clear selected images
+        });
       }
     } else {
       print("Form is not valid");
@@ -92,28 +98,7 @@ class _AdminAddProductState extends State<AdminAddProduct> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        style: IconButton.styleFrom(
-                          side: BorderSide(
-                            width: 2.w,
-                            color: Color.fromARGB(255, 241, 239, 239),
-                          ),
-                        ),
-                        icon: Icon(Icons.arrow_back),
-                      ),
-                      SizedBox(width: 90.w),
-                      Text(
-                        "Add Product",
-                        style: TextStyle(
-                            fontSize: 17.sp, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
+
                   SizedBox(height: 15.h),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
@@ -129,7 +114,13 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                           labelText: "Enter Product Description",
                         ),
                         SizedBox(height: 15.h),
-                        CategotyAdmin(),
+                        CategotyAdmin(
+                          onCategorySelected: (category) {
+                            setState(() {
+                              selectedCategory = category;
+                            });
+                          },
+                        ),
                         SizedBox(height: 15.h),
                         SelectAColor(
                           onColorSelected: (colors) {
@@ -149,16 +140,25 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                           labelText: "Enter Price",
                         ),
                         SizedBox(height: 20.h),
+                        // ImagePickerWidget(
+                        //   imageFiles: [],
+                        //   onImagesSelected: (base64Images) {
+                        //     setState(() {
+                        //       selectedImages =
+                        //           base64Images; // Store the Base64 image strings
+                        //     });
+                        //   },
+                        // ),
                         ImagePickerWidget(
-                          imageFiles: [],
-                          onImagesSelected: (base64Images) {
+                          imageFiles: selectedImages,
+                          onImagesSelected: (images) {
                             setState(() {
                               selectedImages =
-                                  base64Images; // Store the Base64 image strings
+                                  images; // Update the selected images list
                             });
                           },
                         ),
-                        SizedBox(height: 20.h),
+                        SizedBox(height: 10.h),
                         ElevatedButton(
                           onPressed: isLoading ? null : _addingProduct,
                           style: ElevatedButton.styleFrom(
