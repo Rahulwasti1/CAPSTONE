@@ -1,3 +1,4 @@
+import 'package:capstone/admin/add_product/admin_appbar.dart';
 import 'package:capstone/admin/add_product/categoty_admin.dart';
 import 'package:capstone/admin/add_product/image_picker.dart';
 import 'package:capstone/admin/add_product/select_color.dart';
@@ -33,11 +34,11 @@ class _AdminAddProductState extends State<AdminAddProduct> {
         isLoading = true;
       });
 
-      // Convert selected colors to a list of strings
+      // Converting selected colors to a list of strings
       List<String> colorData =
           selectedColors.map((color) => color.value.toString()).toList();
 
-      // Convert price to double
+      // Converting price to double
       double price = double.tryParse(priceContorller.text) ?? 0.0;
 
       // Call addProduct method and pass the data as parameters
@@ -48,29 +49,29 @@ class _AdminAddProductState extends State<AdminAddProduct> {
         price: price,
         color: colorData,
         size: sizeContorller.text,
-        images: selectedImages, // Pass the selected images
+        images: selectedImages, // Passing the selected images
       );
 
       setState(() {
         isLoading = false;
       });
 
-      // Show success or error message using a SnackBar
+      // Showing success or error message using a SnackBar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result)),
       );
 
-      // Reset the form and clear all input fields if the product is added successfully
+      // Reseting the form and clear all input fields if the product is added successfully
       if (result == "Product added successfully!") {
-        _formKey.currentState?.reset(); // Reset the form
-        titleContorller.clear(); // Clear title field
-        descriptionController.clear(); // Clear description field
-        categoryContorller.clear(); // Clear category field
-        sizeContorller.clear(); // Clear size field
-        priceContorller.clear(); // Clear price field
+        _formKey.currentState?.reset();
+        titleContorller.clear();
+        descriptionController.clear();
+        categoryContorller.clear();
+        sizeContorller.clear();
+        priceContorller.clear();
         setState(() {
-          selectedColors = []; // Clear selected colors
-          selectedImages = []; // Clear selected images
+          selectedColors = [];
+          selectedImages = [];
         });
       }
     } else {
@@ -88,107 +89,108 @@ class _AdminAddProductState extends State<AdminAddProduct> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        physics: ClampingScrollPhysics(),
-        child: Form(
-          key: _formKey, // Assign the form key here
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Column(
-                children: [
+        backgroundColor: Colors.white,
+        body: SingleChildScrollView(
+            physics: ClampingScrollPhysics(),
+            child: Form(
+              key: _formKey, // Assign the form key here
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    AdminAppbar(name: 'Add Product'),
 
-                  SizedBox(height: 15.h),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      children: [
-                        InputTextField(
-                          controller: titleContorller,
-                          labelText: "Enter Product Title",
-                        ),
-                        SizedBox(height: 15.h),
-                        InputTextField(
-                          controller: descriptionController,
-                          labelText: "Enter Product Description",
-                        ),
-                        SizedBox(height: 15.h),
-                        CategotyAdmin(
-                          onCategorySelected: (category) {
-                            setState(() {
-                              selectedCategory = category;
-                            });
-                          },
-                        ),
-                        SizedBox(height: 15.h),
-                        SelectAColor(
-                          onColorSelected: (colors) {
-                            setState(() {
-                              selectedColors = colors;
-                            });
-                          },
-                        ),
-                        SizedBox(height: 15.h),
-                        InputTextField(
-                          controller: sizeContorller,
-                          labelText: "Enter Size",
-                        ),
-                        SizedBox(height: 15.h),
-                        InputTextField(
-                          controller: priceContorller,
-                          labelText: "Enter Price",
-                        ),
-                        SizedBox(height: 20.h),
-                        // ImagePickerWidget(
-                        //   imageFiles: [],
-                        //   onImagesSelected: (base64Images) {
-                        //     setState(() {
-                        //       selectedImages =
-                        //           base64Images; // Store the Base64 image strings
-                        //     });
-                        //   },
-                        // ),
-                        ImagePickerWidget(
-                          imageFiles: selectedImages,
-                          onImagesSelected: (images) {
-                            setState(() {
-                              selectedImages =
-                                  images; // Update the selected images list
-                            });
-                          },
-                        ),
-                        SizedBox(height: 10.h),
-                        ElevatedButton(
-                          onPressed: isLoading ? null : _addingProduct,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: CustomColors.secondaryColor,
-                            elevation: 0.2,
-                            minimumSize: Size(360.w, 52.h),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                    // child: Padding(
+                    //   padding: const EdgeInsets.symmetric(horizontal: 10),
+                    //   child: Column(
+                    //     children: [
+
+                    SizedBox(height: 15.h),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        children: [
+                          InputTextField(
+                            controller: titleContorller,
+                            labelText: "Enter Product Title",
                           ),
-                          child: isLoading
-                              ? CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                              : Text(
-                                  "Add Product",
-                                  style: TextStyle(
-                                      fontSize: 16, color: Colors.white),
-                                ),
-                        ),
-                      ],
+                          SizedBox(height: 15.h),
+                          InputTextField(
+                            controller: descriptionController,
+                            labelText: "Enter Product Description",
+                          ),
+                          SizedBox(height: 15.h),
+                          CategotyAdmin(
+                            onCategorySelected: (category) {
+                              setState(() {
+                                selectedCategory = category;
+                              });
+                            },
+                          ),
+                          SizedBox(height: 15.h),
+                          SelectAColor(
+                            onColorSelected: (colors) {
+                              setState(() {
+                                selectedColors = colors;
+                              });
+                            },
+                          ),
+                          SizedBox(height: 15.h),
+                          InputTextField(
+                            controller: sizeContorller,
+                            labelText: "Enter Size",
+                          ),
+                          SizedBox(height: 15.h),
+                          InputTextField(
+                            controller: priceContorller,
+                            labelText: "Enter Price",
+                          ),
+                          SizedBox(height: 20.h),
+                          // ImagePickerWidget(
+                          //   imageFiles: [],
+                          //   onImagesSelected: (base64Images) {
+                          //     setState(() {
+                          //       selectedImages =
+                          //           base64Images; // Store the Base64 image strings
+                          //     });
+                          //   },
+                          // ),
+                          ImagePickerWidget(
+                            imageFiles: selectedImages,
+                            onImagesSelected: (images) {
+                              setState(() {
+                                selectedImages =
+                                    images; // Update the selected images list
+                              });
+                            },
+                          ),
+                          SizedBox(height: 10.h),
+                          ElevatedButton(
+                            onPressed: isLoading ? null : _addingProduct,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: CustomColors.secondaryColor,
+                              elevation: 0.2,
+                              minimumSize: Size(360.w, 52.h),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: isLoading
+                                ? CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : Text(
+                                    "Add Product",
+                                    style: TextStyle(
+                                        fontSize: 16, color: Colors.white),
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
+            )));
   }
 }
 
