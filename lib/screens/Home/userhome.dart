@@ -194,43 +194,79 @@ class _UserhomeState extends State<Userhome> {
                   SizedBox(height: 15.h),
 
                   // Flash Sale Products - Vertical Layout
-                  _isLoading
-                      ? Center(
-                          child: CircularProgressIndicator(
-                            color: CustomColors.secondaryColor,
-                          ),
-                        )
-                      : _flashSaleProducts.isEmpty
-                          ? Center(
-                              child: Text(
-                                "No flash sale products available",
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14.sp,
-                                ),
-                              ),
-                            )
-                          : GridView.builder(
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.75,
-                                crossAxisSpacing: 10.w,
-                                mainAxisSpacing: 10.h,
-                              ),
-                              itemCount: _flashSaleProducts.length,
-                              itemBuilder: (context, index) {
-                                return ProductCard(
-                                  product: _flashSaleProducts[index],
-                                  onTap: () {
-                                    // Navigate to product detail page
-                                    // You can implement this later
-                                  },
-                                );
-                              },
+                  Container(
+                    width: double.infinity,
+                    child: _isLoading
+                        ? Center(
+                            child: CircularProgressIndicator(
+                              color: CustomColors.secondaryColor,
                             ),
+                          )
+                        : _flashSaleProducts.isEmpty
+                            ? Center(
+                                child: Text(
+                                  "No flash sale products available",
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14.sp,
+                                  ),
+                                ),
+                              )
+                            : GridView.builder(
+                                shrinkWrap: true,
+                                physics: NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.7,
+                                  crossAxisSpacing: 1.w,
+                                  mainAxisSpacing: 10.h,
+                                ),
+                                itemCount: _flashSaleProducts.length,
+                                itemBuilder: (context, index) {
+                                  return Stack(
+                                    children: [
+                                      ProductCard(
+                                        product: _flashSaleProducts[index],
+                                        onTap: () {
+                                          // Navigate to product detail page
+                                          // You can implement this later
+                                        },
+                                      ),
+                                      // Positioned widget for the favorite icon
+                                      Positioned(
+                                        top: 0,
+                                        right: 12,
+                                        child: Align(
+                                          alignment: Alignment.topRight,
+                                          child: Container(
+                                            height: 40,
+                                            width: 40,
+                                            decoration: const BoxDecoration(
+                                                color:
+                                                    CustomColors.secondaryColor,
+                                                borderRadius: BorderRadius.only(
+                                                    topRight:
+                                                        Radius.circular(20),
+                                                    bottomLeft:
+                                                        Radius.circular(20))),
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                // Handle the favorite button tap action here
+                                              },
+                                              child: Icon(
+                                                Icons.favorite_border,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                  ),
 
                   SizedBox(height: 20.h),
                 ],
