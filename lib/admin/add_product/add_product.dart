@@ -1,4 +1,3 @@
-import 'package:capstone/admin/add_product/admin_appbar.dart';
 import 'package:capstone/admin/add_product/categoty_admin.dart';
 import 'package:capstone/admin/add_product/image_picker.dart';
 import 'package:capstone/admin/add_product/select_color.dart';
@@ -89,6 +88,35 @@ class _AdminAddProductState extends State<AdminAddProduct> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+        appBar: AppBar(backgroundColor: Colors.white, actions: [
+          Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  style: IconButton.styleFrom(
+                    side: BorderSide(
+                      width: 2.w,
+                      color: Color.fromARGB(255, 241, 239, 239),
+                    ),
+                  ),
+                  icon: Icon(Icons.arrow_back_ios_new_rounded),
+                ),
+              ),
+            ],
+          ),
+          Spacer(),
+          Padding(
+            padding: const EdgeInsets.only(right: 140),
+            child: Text(
+              "Add Product",
+              style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.w600),
+            ),
+          )
+        ]),
         backgroundColor: Colors.white,
         body: SingleChildScrollView(
             physics: ClampingScrollPhysics(),
@@ -97,7 +125,7 @@ class _AdminAddProductState extends State<AdminAddProduct> {
               child: SafeArea(
                 child: Column(
                   children: [
-                    AdminAppbar(name: 'Add Product'),
+                    // AdminAppbar(name: 'Add Product'),
 
                     // child: Padding(
                     //   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -112,11 +140,13 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                           InputTextField(
                             controller: titleContorller,
                             labelText: "Enter Product Title",
+                            keyboardType: TextInputType.none,
                           ),
                           SizedBox(height: 15.h),
                           InputTextField(
                             controller: descriptionController,
                             labelText: "Enter Product Description",
+                            keyboardType: TextInputType.none,
                           ),
                           SizedBox(height: 15.h),
                           CategotyAdmin(
@@ -138,12 +168,13 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                           InputTextField(
                             controller: sizeContorller,
                             labelText: "Enter Size",
+                            keyboardType: TextInputType.text,
                           ),
                           SizedBox(height: 15.h),
                           InputTextField(
-                            controller: priceContorller,
-                            labelText: "Enter Price",
-                          ),
+                              controller: priceContorller,
+                              labelText: "Enter Price",
+                              keyboardType: TextInputType.number),
                           SizedBox(height: 20.h),
                           // ImagePickerWidget(
                           //   imageFiles: [],
@@ -163,7 +194,7 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                               });
                             },
                           ),
-                          SizedBox(height: 10.h),
+                          SizedBox(height: 15.h),
                           ElevatedButton(
                             onPressed: isLoading ? null : _addingProduct,
                             style: ElevatedButton.styleFrom(
@@ -198,8 +229,13 @@ class _AdminAddProductState extends State<AdminAddProduct> {
 class InputTextField extends StatelessWidget {
   final String labelText;
   final TextEditingController controller;
+  final TextInputType keyboardType;
+
   const InputTextField(
-      {super.key, required this.labelText, required this.controller});
+      {super.key,
+      required this.labelText,
+      required this.controller,
+      required this.keyboardType});
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +251,7 @@ class InputTextField extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         labelText: labelText,
       ),
+      keyboardType: keyboardType,
     );
   }
 }
