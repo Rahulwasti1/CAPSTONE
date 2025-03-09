@@ -1,3 +1,4 @@
+import 'package:capstone/admin/admin_navbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -14,12 +15,13 @@ class AdminAppbar extends StatelessWidget {
             padding: const EdgeInsets.only(left: 10),
             child: IconButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (context) => AdminNavbar()));
               },
               style: IconButton.styleFrom(
                 side: BorderSide(
                   width: 2.w,
-                  color: Color.fromARGB(255, 241, 239, 239),
+                  color: Color.fromARGB(255, 236, 234, 234),
                 ),
               ),
               icon: Icon(Icons.arrow_back_ios_new_rounded),

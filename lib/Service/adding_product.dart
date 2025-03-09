@@ -96,7 +96,7 @@ class AddingProduct {
   Future<String> addProduct({
     required String title,
     required String description,
-    required String size,
+    required dynamic size, // Accept either String or List<String>
     required List<String> color,
     required String category,
     required double price,
@@ -109,7 +109,8 @@ class AddingProduct {
       if (title.isEmpty ||
           description.isEmpty ||
           category.isEmpty ||
-          size.isEmpty ||
+          (size is String && size.isEmpty) ||
+          (size is List && size.isEmpty) ||
           color.isEmpty ||
           price <= 0) {
         return "Error: All fields are required";
@@ -175,12 +176,22 @@ class AddingProduct {
         return "Error: Could not process any images. Please try with smaller images.";
       }
 
-      // Convert comma-separated size string to list of sizes
-      List<String> sizesList = size
-          .split(',')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
+      // Handle sizes properly based on input type
+      List<String> sizesList;
+      if (size is List) {
+        // If size is already a List, use it directly
+        sizesList = List<String>.from(size);
+      } else if (size is String) {
+        // Convert comma-separated size string to list of sizes
+        sizesList = size
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      } else {
+        // Fallback for unexpected type
+        sizesList = [];
+      }
 
       // Product data with all processed images
       final Map<String, dynamic> productData = {

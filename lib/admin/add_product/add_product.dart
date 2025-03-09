@@ -1,6 +1,7 @@
 import 'package:capstone/admin/add_product/categoty_admin.dart';
 import 'package:capstone/admin/add_product/image_picker.dart';
 import 'package:capstone/admin/add_product/select_color.dart';
+import 'package:capstone/admin/admin_navbar.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/service/adding_product.dart';
 import 'package:capstone/widget/error_dialog.dart';
@@ -29,33 +30,52 @@ class _AdminAddProductState extends State<AdminAddProduct> {
   String? selectedCategory;
   List<String> selectedSizes = []; // Store selected sizes
 
-  // Common shoe sizes to choose from
-  final List<String> commonSizes = [
-    '6',
-    '7',
-    '8',
-    '9',
-    '10',
-    '11',
-    '12',
-    '36',
-    '37',
-    '38',
-    '39',
-    '40',
-    '41',
-    '42',
-    '43',
-    '44',
-    '45',
-    'S',
-    'M',
-    'L',
-    'XL',
-    'XXL'
-  ];
+  // Adding these maps to store size options per category
+  final Map<String, List<String>> categorySizes = {
+    'Apparel': ['S', 'M', 'L', 'XL', 'XXL'],
+    'Shoes': [
+      '6',
+      '7',
+      '8',
+      '9',
+      '10',
+      '11',
+      '12',
+      '36',
+      '37',
+      '38',
+      '39',
+      '40',
+      '41',
+      '42',
+      '43',
+      '44',
+      '45'
+    ],
+    'Watches': ['Small', 'Medium', 'Large'],
+    'Ornaments': ['Small', 'Medium', 'Large'],
+    'Sunglasses': ['Small', 'Medium', 'Large']
+  };
 
-// Function to add product
+  // Get current sizes based on selected category
+  List<String> get currentSizes {
+    if (selectedCategory == null) {
+      return []; // No category selected, no sizes
+    }
+    return categorySizes[selectedCategory] ?? [];
+  }
+
+  // Updating onCategorySelected method to clear previously selected sizes when category changes
+  void onCategorySelected(String? category) {
+    setState(() {
+      if (selectedCategory != category) {
+        selectedSizes = [];
+      }
+      selectedCategory = category;
+    });
+  }
+
+  // Function to add product
   Future<void> _addingProduct() async {
     // Validate if all fields are filled properly
     bool allFieldsValid = titleContorller.text.isNotEmpty &&
@@ -143,7 +163,7 @@ class _AdminAddProductState extends State<AdminAddProduct> {
               category: selectedCategory!,
               price: price,
               color: colorData,
-              size: selectedSizes.join(', '), // Join selected sizes with commas
+              size: selectedSizes, // Pass the sizes as a list directly
               images: selectedImages,
             )
             .timeout(
@@ -263,7 +283,8 @@ class _AdminAddProductState extends State<AdminAddProduct> {
           centerTitle: true,
           leading: IconButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => AdminNavbar()));
             },
             icon: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
           ),
@@ -350,11 +371,7 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                           SizedBox(height: 15.h),
 
                           CategotyAdmin(
-                            onCategorySelected: (category) {
-                              setState(() {
-                                selectedCategory = category;
-                              });
-                            },
+                            onCategorySelected: onCategorySelected,
                             initialValue: selectedCategory,
                           ),
                           SizedBox(height: 20.h),
@@ -384,115 +401,76 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                               ),
                               SizedBox(height: 10.h),
 
-                              // Size chips
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: commonSizes.map((size) {
-                                  bool isSelected =
-                                      selectedSizes.contains(size);
-                                  return FilterChip(
-                                    label: Text(size),
-                                    selected: isSelected,
-                                    checkmarkColor: Colors.white,
-                                    backgroundColor: Colors.grey[200],
-                                    selectedColor: CustomColors.secondaryColor,
-                                    labelStyle: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.black,
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
+                              // Size chips - now using currentSizes from selected category
+                              selectedCategory == null
+                                  ? Text("Please select a category first",
+                                      style: TextStyle(color: Colors.grey))
+                                  : Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: currentSizes.map((size) {
+                                        bool isSelected =
+                                            selectedSizes.contains(size);
+                                        return FilterChip(
+                                          label: Text(size),
+                                          selected: isSelected,
+                                          checkmarkColor: Colors.white,
+                                          backgroundColor: Colors.grey[200],
+                                          selectedColor:
+                                              CustomColors.secondaryColor,
+                                          labelStyle: TextStyle(
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.black,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                          onSelected: (bool selected) {
+                                            _toggleSize(size);
+                                          },
+                                        );
+                                      }).toList(),
                                     ),
-                                    onSelected: (bool selected) {
-                                      _toggleSize(size);
-                                    },
-                                  );
-                                }).toList(),
-                              ),
 
                               // Custom size input
                               SizedBox(height: 10.h),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: sizeContorller,
-                                      decoration: InputDecoration(
-                                        hintText: "Add custom size",
-                                        border: OutlineInputBorder(
+                              if (selectedCategory !=
+                                  null) // Only show if category is selected
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: sizeContorller,
+                                        decoration: InputDecoration(
+                                          hintText: "Add custom size",
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          contentPadding: EdgeInsets.symmetric(
+                                              horizontal: 15, vertical: 12),
+                                        ),
+                                        keyboardType: TextInputType.text,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10.w),
+                                    ElevatedButton(
+                                      onPressed: _addCustomSize,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            CustomColors.secondaryColor,
+                                        shape: RoundedRectangleBorder(
                                           borderRadius:
                                               BorderRadius.circular(10),
                                         ),
-                                        contentPadding: EdgeInsets.symmetric(
-                                            horizontal: 15, vertical: 12),
+                                        padding:
+                                            EdgeInsets.symmetric(vertical: 12),
                                       ),
-                                      keyboardType: TextInputType.text,
+                                      child: Text("Add Size"),
                                     ),
-                                  ),
-                                  SizedBox(width: 10.w),
-                                  ElevatedButton(
-                                    onPressed: _addCustomSize,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          CustomColors.secondaryColor,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      padding:
-                                          EdgeInsets.symmetric(vertical: 12),
-                                    ),
-                                    child: Text("Add Size"),
-                                  ),
-                                ],
-                              ),
-
-                              // Selected sizes display
-                              if (selectedSizes.isNotEmpty) ...[
-                                SizedBox(height: 10.h),
-                                Container(
-                                  padding: EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(10),
-                                    border:
-                                        Border.all(color: Colors.grey[300]!),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Selected Sizes:",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14.sp,
-                                        ),
-                                      ),
-                                      SizedBox(height: 5.h),
-                                      Wrap(
-                                        spacing: 5,
-                                        runSpacing: 5,
-                                        children: selectedSizes.map((size) {
-                                          return Chip(
-                                            label: Text(size),
-                                            backgroundColor: CustomColors
-                                                .secondaryColor
-                                                .withOpacity(0.2),
-                                            deleteIconColor: Colors.red,
-                                            onDeleted: () {
-                                              setState(() {
-                                                selectedSizes.remove(size);
-                                              });
-                                            },
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ],
-                                  ),
+                                  ],
                                 ),
-                              ],
                             ],
                           ),
                           SizedBox(height: 20.h),

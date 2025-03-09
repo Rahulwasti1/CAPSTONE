@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:capstone/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -166,6 +167,42 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     String availableSizesText =
         sizes.isEmpty ? "Not specified" : sizes.join(", ");
 
+    // Get all specifications from the product for the specifications tab
+    Map<String, dynamic> specifications = {};
+
+    // Add fields to specifications if they exist in the product data
+    if (widget.product['brand'] != null)
+      specifications['Brand'] = widget.product['brand'];
+    if (widget.product['type'] != null)
+      specifications['Type'] = widget.product['type'];
+    if (widget.product['category'] != null)
+      specifications['Category'] = widget.product['category'];
+    if (widget.product['material'] != null)
+      specifications['Material'] = widget.product['material'];
+    if (widget.product['innerLining'] != null)
+      specifications['Inner Lining'] = widget.product['innerLining'];
+    if (widget.product['origin'] != null)
+      specifications['Origin'] = widget.product['origin'];
+
+    // Handle sizes specially
+    if (widget.product['sizes'] != null) {
+      if (widget.product['sizes'] is List) {
+        specifications['Available Sizes'] =
+            (widget.product['sizes'] as List).join(', ');
+      } else if (widget.product['sizes'] is String) {
+        specifications['Available Sizes'] = widget.product['sizes'];
+      }
+    }
+
+    // Default specifications if none are available
+    if (specifications.isEmpty) {
+      specifications = {
+        'Brand': 'Caliber',
+        'Type': 'Premium Product',
+        'Available Sizes': selectedSize,
+      };
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -270,7 +307,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(4),
                                       color: currentImageIndex == index
-                                          ? Color(0xFFF9A826)
+                                          ? CustomColors.secondaryColor
                                           : Colors.grey.shade300,
                                     ),
                                   ),
@@ -471,7 +508,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 decoration: BoxDecoration(
                                   color: _selectedTabIndex == 0
-                                      ? Color(0xFFF9A826) // Orange active color
+                                      ? CustomColors.secondaryColor
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(25),
                                 ),
@@ -501,7 +538,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 decoration: BoxDecoration(
                                   color: _selectedTabIndex == 1
-                                      ? Color(0xFFF9A826) // Orange active color
+                                      ? CustomColors.secondaryColor
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(25),
                                 ),
@@ -548,30 +585,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                           SingleChildScrollView(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildSpecRow(
-                                    "Brand",
-                                    widget.product['brand'] as String? ??
-                                        "Caliber"),
-                                _buildSpecRow(
-                                    "Type",
-                                    widget.product['type'] as String? ??
-                                        "Coffee Sneakers"),
-                                _buildSpecRow(
-                                    "Available Sizes", availableSizesText),
-                                _buildSpecRow(
-                                    "Material",
-                                    widget.product['material'] as String? ??
-                                        "Premium Leather"),
-                                _buildSpecRow(
-                                    "Inner Lining",
-                                    widget.product['innerLining'] as String? ??
-                                        "Cushioned cloth"),
-                                _buildSpecRow(
-                                    "Origin",
-                                    widget.product['origin'] as String? ??
-                                        "Made in Italy"),
-                              ],
+                              children: specifications.entries.map((entry) {
+                                return _buildSpecRow(
+                                    entry.key, entry.value.toString());
+                              }).toList(),
                             ),
                           ),
                         ],
@@ -629,7 +646,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     child: Container(
                       height: 48,
                       decoration: BoxDecoration(
-                        color: Color(0xFFF9A826), // Orange color
+                        color: CustomColors.secondaryColor,
                         borderRadius: BorderRadius.circular(30),
                       ),
                       child: TextButton(
