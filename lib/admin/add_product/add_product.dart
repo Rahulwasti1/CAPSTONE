@@ -3,9 +3,11 @@ import 'package:capstone/admin/add_product/image_picker.dart';
 import 'package:capstone/admin/add_product/select_color.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/service/adding_product.dart';
+import 'package:capstone/widget/error_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 
 class AdminAddProduct extends StatefulWidget {
   const AdminAddProduct({
@@ -25,56 +27,210 @@ class _AdminAddProductState extends State<AdminAddProduct> {
   List<Color> selectedColors = []; // To hold the selected colors
   List<XFile> selectedImages = []; // To store selected images
   String? selectedCategory;
+  List<String> selectedSizes = []; // Store selected sizes
+
+  // Common shoe sizes to choose from
+  final List<String> commonSizes = [
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12',
+    '36',
+    '37',
+    '38',
+    '39',
+    '40',
+    '41',
+    '42',
+    '43',
+    '44',
+    '45',
+    'S',
+    'M',
+    'L',
+    'XL',
+    'XXL'
+  ];
 
 // Function to add product
   Future<void> _addingProduct() async {
+    // Validate if all fields are filled properly
+    bool allFieldsValid = titleContorller.text.isNotEmpty &&
+        descriptionController.text.isNotEmpty &&
+        selectedCategory != null &&
+        selectedCategory!.isNotEmpty &&
+        selectedSizes.isNotEmpty &&
+        priceContorller.text.isNotEmpty &&
+        selectedColors.isNotEmpty &&
+        selectedImages.isNotEmpty;
+
+    if (!allFieldsValid) {
+      // Show error message for empty fields
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("All fields are required. Please fill them all."),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(10),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return; // Stop execution if any field is empty
+    }
+
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         isLoading = true;
       });
 
-      // Converting selected colors to a list of strings
-      List<String> colorData =
-          selectedColors.map((color) => color.value.toString()).toList();
-
-      // Converting price to double
-      double price = double.tryParse(priceContorller.text) ?? 0.0;
-
-      // Call addProduct method and pass the data as parameters
-      final result = await _addProduct.addProduct(
-        title: titleContorller.text,
-        description: descriptionController.text,
-        category: selectedCategory ?? '',
-        price: price,
-        color: colorData,
-        size: sizeContorller.text,
-        images: selectedImages, // Passing the selected images
-      );
-
-      setState(() {
-        isLoading = false;
-      });
-
-      // Showing success or error message using a SnackBar
+      // Show more specific processing message with clear status
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result)),
+        SnackBar(
+          content: Row(
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                strokeWidth: 2,
+              ),
+              SizedBox(width: 15),
+              Expanded(
+                child: Text(
+                  "Processing ${selectedImages.length} ${selectedImages.length == 1 ? 'image' : 'images'} and uploading product. Please wait...",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.blue,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(10),
+          duration: Duration(
+              seconds: 40), // Longer duration for processing multiple images
+        ),
       );
 
-      // Reseting the form and clear all input fields if the product is added successfully
-      if (result == "Product added successfully!") {
-        _formKey.currentState?.reset();
-        titleContorller.clear();
-        descriptionController.clear();
-        categoryContorller.clear();
-        sizeContorller.clear();
-        priceContorller.clear();
+      try {
+        // Convert colors to string format for Firestore
+        List<String> colorData =
+            selectedColors.map((color) => color.value.toString()).toList();
+
+        // Make sure price is valid
+        double? price = double.tryParse(priceContorller.text);
+        if (price == null || price <= 0) {
+          setState(() {
+            isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Please enter a valid price"),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.all(10),
+            ),
+          );
+          return;
+        }
+
+        // Call addProduct method with validated data
+        // Use a timeout to prevent hanging
+        final result = await _addProduct
+            .addProduct(
+              title: titleContorller.text,
+              description: descriptionController.text,
+              category: selectedCategory!,
+              price: price,
+              color: colorData,
+              size: selectedSizes.join(', '), // Join selected sizes with commas
+              images: selectedImages,
+            )
+            .timeout(
+              Duration(seconds: 30), // 30 second timeout
+              onTimeout: () =>
+                  "Error: Operation timed out. Try using smaller image files.",
+            );
+
         setState(() {
-          selectedColors = [];
-          selectedImages = [];
+          isLoading = false;
         });
+
+        // Check if product was added successfully
+        if (result.contains("successfully")) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Product added successfully!"),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.all(10),
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          // Reset form only on success
+          _formKey.currentState?.reset();
+          titleContorller.clear();
+          descriptionController.clear();
+          categoryContorller.clear();
+          sizeContorller.clear();
+          priceContorller.clear();
+          setState(() {
+            selectedColors = [];
+            selectedImages = [];
+            selectedCategory = null;
+            selectedSizes = [];
+          });
+        } else {
+          // Show error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.replaceAll("Error: ", "")),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.all(10),
+              duration: Duration(seconds: 5), // Show error longer
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          isLoading = false;
+        });
+
+        // Show error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                "An error occurred. Try with smaller images or check your connection."),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.all(10),
+            duration: Duration(seconds: 5),
+          ),
+        );
       }
-    } else {
-      print("Form is not valid");
+    }
+  }
+
+  // Function to toggle size selection
+  void _toggleSize(String size) {
+    setState(() {
+      if (selectedSizes.contains(size)) {
+        selectedSizes.remove(size);
+      } else {
+        selectedSizes.add(size);
+      }
+    });
+  }
+
+  // Add a custom size
+  void _addCustomSize() {
+    if (sizeContorller.text.isNotEmpty) {
+      setState(() {
+        selectedSizes.add(sizeContorller.text);
+        sizeContorller.clear();
+      });
     }
   }
 
@@ -85,38 +241,33 @@ class _AdminAddProductState extends State<AdminAddProduct> {
   TextEditingController sizeContorller = TextEditingController();
   TextEditingController priceContorller = TextEditingController();
 
+  // Helper method to create required field label string
+  String _requiredFieldLabel(String labelText) {
+    return "$labelText *";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(backgroundColor: Colors.white, actions: [
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 10),
-                child: IconButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  style: IconButton.styleFrom(
-                    side: BorderSide(
-                      width: 2.w,
-                      color: Color.fromARGB(255, 241, 239, 239),
-                    ),
-                  ),
-                  icon: Icon(Icons.arrow_back_ios_new_rounded),
-                ),
-              ),
-            ],
-          ),
-          Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(right: 140),
-            child: Text(
-              "Add Product",
-              style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.w600),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            "Add Product",
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
             ),
-          )
-        ]),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+          ),
+        ),
         backgroundColor: Colors.white,
         body: SingleChildScrollView(
             physics: ClampingScrollPhysics(),
@@ -124,39 +275,229 @@ class _AdminAddProductState extends State<AdminAddProduct> {
               key: _formKey, // Assign the form key here
               child: SafeArea(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // AdminAppbar(name: 'Add Product'),
-
-                    // child: Padding(
-                    //   padding: const EdgeInsets.symmetric(horizontal: 10),
-                    //   child: Column(
-                    //     children: [
-
                     SizedBox(height: 15.h),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      padding: EdgeInsets.symmetric(horizontal: 15),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Product Information Section
+                          Text(
+                            "Product Information",
+                            style: TextStyle(
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 15.h),
+
+                          // Title Field
                           InputTextField(
                             controller: titleContorller,
-                            labelText: "Enter Product Title",
-                            keyboardType: TextInputType.none,
+                            labelText:
+                                _requiredFieldLabel("Enter Product Title"),
+                            keyboardType: TextInputType.text,
                           ),
                           SizedBox(height: 15.h),
-                          InputTextField(
-                            controller: descriptionController,
-                            labelText: "Enter Product Description",
-                            keyboardType: TextInputType.none,
+
+                          // Description Field with bigger height
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _requiredFieldLabel("Product Description"),
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+                              TextFormField(
+                                controller: descriptionController,
+                                maxLines: 4,
+                                decoration: InputDecoration(
+                                  hintText:
+                                      "Enter detailed product description...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter a description';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 20.h),
+
+                          // Category Selection
+                          Text(
+                            "Product Details",
+                            style: TextStyle(
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
                           SizedBox(height: 15.h),
+
                           CategotyAdmin(
                             onCategorySelected: (category) {
                               setState(() {
                                 selectedCategory = category;
                               });
                             },
+                            initialValue: selectedCategory,
                           ),
-                          SizedBox(height: 15.h),
+                          SizedBox(height: 20.h),
+
+                          // Size Selection
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    "Select Sizes",
+                                    style: TextStyle(
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    " *",
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 10.h),
+
+                              // Size chips
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: commonSizes.map((size) {
+                                  bool isSelected =
+                                      selectedSizes.contains(size);
+                                  return FilterChip(
+                                    label: Text(size),
+                                    selected: isSelected,
+                                    checkmarkColor: Colors.white,
+                                    backgroundColor: Colors.grey[200],
+                                    selectedColor: CustomColors.secondaryColor,
+                                    labelStyle: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.black,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                    onSelected: (bool selected) {
+                                      _toggleSize(size);
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+
+                              // Custom size input
+                              SizedBox(height: 10.h),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: sizeContorller,
+                                      decoration: InputDecoration(
+                                        hintText: "Add custom size",
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 15, vertical: 12),
+                                      ),
+                                      keyboardType: TextInputType.text,
+                                    ),
+                                  ),
+                                  SizedBox(width: 10.w),
+                                  ElevatedButton(
+                                    onPressed: _addCustomSize,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          CustomColors.secondaryColor,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    child: Text("Add Size"),
+                                  ),
+                                ],
+                              ),
+
+                              // Selected sizes display
+                              if (selectedSizes.isNotEmpty) ...[
+                                SizedBox(height: 10.h),
+                                Container(
+                                  padding: EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(10),
+                                    border:
+                                        Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Selected Sizes:",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14.sp,
+                                        ),
+                                      ),
+                                      SizedBox(height: 5.h),
+                                      Wrap(
+                                        spacing: 5,
+                                        runSpacing: 5,
+                                        children: selectedSizes.map((size) {
+                                          return Chip(
+                                            label: Text(size),
+                                            backgroundColor: CustomColors
+                                                .secondaryColor
+                                                .withOpacity(0.2),
+                                            deleteIconColor: Colors.red,
+                                            onDeleted: () {
+                                              setState(() {
+                                                selectedSizes.remove(size);
+                                              });
+                                            },
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          SizedBox(height: 20.h),
+
+                          // Color Selection
                           SelectAColor(
                             onColorSelected: (colors) {
                               setState(() {
@@ -164,57 +505,55 @@ class _AdminAddProductState extends State<AdminAddProduct> {
                               });
                             },
                           ),
-                          SizedBox(height: 15.h),
-                          InputTextField(
-                            controller: sizeContorller,
-                            labelText: "Enter Size",
-                            keyboardType: TextInputType.text,
-                          ),
-                          SizedBox(height: 15.h),
-                          InputTextField(
-                              controller: priceContorller,
-                              labelText: "Enter Price",
-                              keyboardType: TextInputType.number),
                           SizedBox(height: 20.h),
-                          // ImagePickerWidget(
-                          //   imageFiles: [],
-                          //   onImagesSelected: (base64Images) {
-                          //     setState(() {
-                          //       selectedImages =
-                          //           base64Images; // Store the Base64 image strings
-                          //     });
-                          //   },
-                          // ),
+
+                          // Price Field
+                          InputTextField(
+                            controller: priceContorller,
+                            labelText: _requiredFieldLabel("Enter Price"),
+                            keyboardType: TextInputType.number,
+                          ),
+                          SizedBox(height: 25.h),
+
+                          // Image Selection
                           ImagePickerWidget(
                             imageFiles: selectedImages,
                             onImagesSelected: (images) {
                               setState(() {
-                                selectedImages =
-                                    images; // Update the selected images list
+                                selectedImages = images;
                               });
                             },
                           ),
-                          SizedBox(height: 15.h),
-                          ElevatedButton(
-                            onPressed: isLoading ? null : _addingProduct,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: CustomColors.secondaryColor,
-                              elevation: 0.2,
-                              minimumSize: Size(360.w, 52.h),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                          SizedBox(height: 25.h),
+
+                          // Add Product Button
+                          Container(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isLoading ? null : _addingProduct,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: CustomColors.secondaryColor,
+                                elevation: 2,
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
+                              child: isLoading
+                                  ? CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                  : Text(
+                                      "Add Product",
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                             ),
-                            child: isLoading
-                                ? CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
-                                : Text(
-                                    "Add Product",
-                                    style: TextStyle(
-                                        fontSize: 16, color: Colors.white),
-                                  ),
                           ),
+                          SizedBox(height: 30.h),
                         ],
                       ),
                     ),

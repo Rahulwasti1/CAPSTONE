@@ -1,4 +1,5 @@
 import 'package:capstone/constants/colors.dart';
+import 'package:capstone/screens/product/product_detail_screen.dart';
 import 'package:capstone/screens/categories/categories.dart';
 import 'package:capstone/screens/home/home_appbar.dart';
 import 'package:capstone/screens/home/home_categories.dart';
@@ -219,8 +220,8 @@ class _UserhomeState extends State<Userhome> {
                                     SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
                                   childAspectRatio: 0.7,
-                                  crossAxisSpacing: 1.w,
-                                  mainAxisSpacing: 10.h,
+                                  crossAxisSpacing: 15.w,
+                                  mainAxisSpacing: 20.h,
                                 ),
                                 itemCount: _flashSaleProducts.length,
                                 itemBuilder: (context, index) {
@@ -230,7 +231,16 @@ class _UserhomeState extends State<Userhome> {
                                         product: _flashSaleProducts[index],
                                         onTap: () {
                                           // Navigate to product detail page
-                                          // You can implement this later
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  ProductDetailScreen(
+                                                product:
+                                                    _flashSaleProducts[index],
+                                              ),
+                                            ),
+                                          );
                                         },
                                       ),
                                       // Positioned widget for the favorite icon

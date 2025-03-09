@@ -1,3 +1,4 @@
+import 'package:capstone/navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -13,7 +14,7 @@ class UserAppbar extends StatelessWidget {
         children: [
           ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => UserNavigation()));
               },
               style: ElevatedButton.styleFrom(
                 elevation: 0.1,

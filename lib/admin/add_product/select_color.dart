@@ -3,8 +3,8 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SelectAColor extends StatefulWidget {
-    final Function(List<Color>)onColorSelected ; // creating a function to send selected colors 
-
+  final Function(List<Color>)
+      onColorSelected; // creating a function to send selected colors
 
   const SelectAColor({super.key, required this.onColorSelected});
 
@@ -13,8 +13,6 @@ class SelectAColor extends StatefulWidget {
 }
 
 class _SelectAColorState extends State<SelectAColor> {
-
-
   List<Color> selectedColors = [];
 
   void pickCustomColor() {
@@ -49,6 +47,23 @@ class _SelectAColorState extends State<SelectAColor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            Text(
+              "Select Colors",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              " *",
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
         SizedBox(
           height: 50.h,
           width: double.infinity,
