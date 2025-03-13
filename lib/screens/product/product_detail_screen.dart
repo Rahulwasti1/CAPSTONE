@@ -220,11 +220,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ),
                   Row(
                     children: [
-                      IconButton(
-                        icon: Icon(Icons.share_outlined, size: 24),
-                        onPressed: () {},
-                      ),
-                      IconButton(
+                       IconButton(
                         icon: Icon(
                           isLiked ? Icons.favorite : Icons.favorite_border,
                           size: 24,
@@ -271,21 +267,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                               return Padding(
                                 padding: EdgeInsets.all(20),
                                 child: imageURLs.isNotEmpty
-                                    ? Image.memory(
-                                        base64Decode(imageURLs[index]),
-                                        fit: BoxFit.contain,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return Image.network(
-                                            'https://www.transparentpng.com/thumb/sneakers/sneakers-shoes-clipart-png-image-3.png',
-                                            fit: BoxFit.contain,
-                                          );
+                                    ? Builder(
+                                        builder: (context) {
+                                          try {
+                                            // Attempt to decode and display the image
+                                            return Image.memory(
+                                              base64Decode(imageURLs[index]),
+                                              fit: BoxFit.contain,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                print(
+                                                    "Image decode error: $error");
+                                                return _buildFallbackImage();
+                                              },
+                                            );
+                                          } catch (e) {
+                                            // Handle any base64 decoding exceptions
+                                            print("Image exception: $e");
+                                            return _buildFallbackImage();
+                                          }
                                         },
                                       )
-                                    : Image.network(
-                                        'https://www.transparentpng.com/thumb/sneakers/sneakers-shoes-clipart-png-image-3.png',
-                                        fit: BoxFit.contain,
-                                      ),
+                                    : _buildFallbackImage(),
                               );
                             },
                           ),
@@ -327,7 +330,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                           Text(
                             title,
                             style: TextStyle(
-                              fontSize: 32,
+                              fontSize: 30,
                               fontWeight: FontWeight.bold,
                               color: Colors.black,
                               height: 1.2,
@@ -621,16 +624,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     width: 110,
                     margin: EdgeInsets.only(right: 10),
                     decoration: BoxDecoration(
-                      color: Colors.black,
+                      border: Border.all(color: CustomColors.secondaryColor),
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: TextButton.icon(
-                      icon:
-                          Icon(Icons.camera_alt, color: Colors.lightBlueAccent),
+                      icon: Icon(Icons.camera_alt,
+                          color: CustomColors.secondaryColor),
                       label: Text(
                         "Try On",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: CustomColors.secondaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -708,6 +711,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFallbackImage() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Image.network(
+          'https://cdn-icons-png.flaticon.com/512/1152/1152264.png', // Generic shoes icon
+          height: 120,
+          width: 120,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            // If even network image fails, show a basic icon
+            return Icon(
+              Icons.image_not_supported_outlined,
+              size: 80,
+              color: Colors.grey[400],
+            );
+          },
+        ),
+        SizedBox(height: 10),
+        Text(
+          "Image unavailable",
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 16,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -14,7 +14,8 @@ class UserAppbar extends StatelessWidget {
         children: [
           ElevatedButton(
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => UserNavigation()));
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (context) => UserNavigation()));
               },
               style: ElevatedButton.styleFrom(
                 elevation: 0.1,
@@ -27,6 +28,11 @@ class UserAppbar extends StatelessWidget {
               ),
               child: Icon(Icons.arrow_back,
                   size: 20.sp, color: const Color.fromARGB(255, 31, 31, 30))),
+          SizedBox(width: 70.w),
+          Text(
+            "Category",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+          )
         ],
       ),
     );

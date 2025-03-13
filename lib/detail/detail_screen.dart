@@ -379,7 +379,7 @@ class _DetailScreenState extends State<DetailScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Try On feature coming soon!'),
-                      backgroundColor: Colors.black,
+                      backgroundColor: Colors.white,
                     ),
                   );
                 },
@@ -389,6 +389,7 @@ class _DetailScreenState extends State<DetailScreen>
                   style: TextStyle(
                     fontSize: 14.sp,
                     fontWeight: FontWeight.bold,
+                    color: CustomColors.secondaryColor
                   ),
                 ),
                 style: ElevatedButton.styleFrom(

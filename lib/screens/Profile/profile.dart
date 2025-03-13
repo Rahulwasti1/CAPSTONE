@@ -96,7 +96,7 @@ class _UserProfileState extends State<UserProfile> {
               SizedBox(height: 17.h),
 
               Padding(
-                padding: const EdgeInsets.only(right: 330),
+                padding: const EdgeInsets.only(right: 300),
                 child: Text(
                   "Account",
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
@@ -115,13 +115,13 @@ class _UserProfileState extends State<UserProfile> {
               ),
               SizedBox(height: 20.h),
               Padding(
-                padding: const EdgeInsets.only(right: 330),
+                padding: const EdgeInsets.only(right: 300),
                 child: Text(
                   "Support",
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
-              SizedBox(height: 10.h),
+              SizedBox(height: 11.h),
               Padding(
                   padding: const EdgeInsets.only(left: 19),
                   child: IconsandText(

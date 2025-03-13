@@ -82,8 +82,8 @@ class _UserNavigationState extends State<UserNavigation> {
                     });
                   },
                   icon: Icon(
-                    Iconsax.shopping_cart,
-                    size: 28,
+                    Iconsax.category,
+                    size: 25,
                     color: currentIndex == 1
                         ? CustomColors.secondaryColor
                         : Colors.grey,
@@ -96,7 +96,7 @@ class _UserNavigationState extends State<UserNavigation> {
                     });
                   },
                   icon: Icon(
-                    Iconsax.heart,
+                    Iconsax.shopping_cart,
                     size: 25,
                     color: currentIndex == 3
                         ? CustomColors.secondaryColor

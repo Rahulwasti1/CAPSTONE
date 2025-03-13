@@ -246,7 +246,7 @@ class _UserhomeState extends State<Userhome> {
                                       // Positioned widget for the favorite icon
                                       Positioned(
                                         top: 0,
-                                        right: 12,
+                                        right: 0,
                                         child: Align(
                                           alignment: Alignment.topRight,
                                           child: Container(

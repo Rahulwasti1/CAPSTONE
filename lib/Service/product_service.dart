@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class ProductService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Fetch all products
+  // Fetching all products
   Future<List<Map<String, dynamic>>> getProducts() async {
     try {
       QuerySnapshot querySnapshot =
@@ -11,7 +11,7 @@ class ProductService {
 
       return querySnapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        // Add the document ID to the data
+        // Adding the document ID to the data
         data['id'] = doc.id;
         return data;
       }).toList();
@@ -21,7 +21,7 @@ class ProductService {
     }
   }
 
-  // Fetch products by category
+  // Fetching products by category
   Future<List<Map<String, dynamic>>> getProductsByCategory(
       String category) async {
     try {
@@ -41,16 +41,13 @@ class ProductService {
     }
   }
 
-  // Fetch flash sale products (you can define your own criteria for flash sale)
+  // Fetching flash sale products (you can define your own criteria for flash sale)
   Future<List<Map<String, dynamic>>> getFlashSaleProducts() async {
     try {
-      // You might want to add a field like 'isFlashSale' to your products
-      // or use a separate collection for flash sales
-      // For now, let's just get the most recent products (limited to 5)
       QuerySnapshot querySnapshot = await _firestore
           .collection('admin_products')
           .orderBy('addedByAdmin', descending: true)
-          .limit(5)
+          .limit(10)
           .get();
 
       return querySnapshot.docs.map((doc) {

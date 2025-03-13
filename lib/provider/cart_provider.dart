@@ -120,3 +120,4 @@ class CartProvider with ChangeNotifier {
     return Provider.of<CartProvider>(context, listen: listen);
   }
 }
+
