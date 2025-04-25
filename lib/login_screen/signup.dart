@@ -1,5 +1,4 @@
 import 'package:capstone/admin/admin_navbar.dart';
-import 'package:capstone/service/admin_auth.dart';
 import 'package:capstone/service/auth_service.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/login.dart';
@@ -21,45 +20,121 @@ class _UserSignupState extends State<UserSignup> {
   bool _isObsecure = true;
   bool isLoading = false;
   final AuthService _authService = AuthService();
-  final AdminAuthService _adminAuthService = AdminAuthService();
 
-  // Signup function to handle user registration
+  // Validate form fields
+  bool _validateFields() {
+    if (nameContorller.text.isEmpty) {
+      showSnackBar(context, "Please enter your name", isError: true);
+      return false;
+    }
 
+    if (emailContorller.text.isEmpty) {
+      showSnackBar(context, "Please enter your email", isError: true);
+      return false;
+    }
+
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+        .hasMatch(emailContorller.text)) {
+      showSnackBar(context, "Please enter a valid email address",
+          isError: true);
+      return false;
+    }
+
+    if (passwordContorller.text.isEmpty) {
+      showSnackBar(context, "Please enter your password", isError: true);
+      return false;
+    }
+
+    if (passwordContorller.text.length < 6) {
+      showSnackBar(context, "Password must be at least 6 characters",
+          isError: true);
+      return false;
+    }
+
+    if (!isChecked) {
+      showSnackBar(context, "Please agree to the Terms & Conditions",
+          isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
+  // Signup function
   void _signUp() async {
+    // Validate fields first
+    if (!_validateFields()) {
+      return;
+    }
+
     setState(() {
       isLoading = true;
     });
 
-    // calling the method
-    final result = await _authService.signUpUser(
-        email: emailContorller.text,
-        password: passwordContorller.text,
-        name: nameContorller.text);
+    try {
+      // Attempt user signup
+      final result = await _authService.signUpUser(
+          email: emailContorller.text,
+          password: passwordContorller.text,
+          name: nameContorller.text);
 
-    // calling the method for admin
-    final adminResult = await _adminAuthService.loginAdmin(
-      email: emailContorller.text,
-      password: passwordContorller.text,
-    );
+      if (result == "success") {
+        showSnackBar(context, "Signup Successful");
 
-    if (result == "success") {
-      showSnackBar(context, "Signup Successful");
+        // Navigate to user screen and remove all previous routes, even if SharedPreferences failed
+        Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => UserNavigation()),
+            (route) => false);
+      } else {
+        // Show error message
+        String errorMessage = result;
+        if (result.contains("[firebase_auth]")) {
+          if (result.contains("email-already-in-use")) {
+            errorMessage = "Email is already in use. Try signing in instead.";
+          } else if (result.contains("weak-password")) {
+            errorMessage =
+                "Password is too weak. Please use a stronger password.";
+          } else if (result.contains("invalid-email")) {
+            errorMessage = "Invalid email address.";
+          } else {
+            errorMessage = "Signup failed. Please try again.";
+          }
+        } else if (result.contains("PlatformException") &&
+            result.contains("shared_preferences")) {
+          // If it's a SharedPreferences error, we can still proceed with the account creation
+          showSnackBar(context,
+              "Account created, but some preferences couldn't be saved. You may need to log in again next time.",
+              isError: false);
 
-      // navigating to the next screen with the message
+          // Navigate to user screen anyway
+          Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => UserNavigation()),
+              (route) => false);
+          return;
+        }
 
-      Navigator.push(
-          context, MaterialPageRoute(builder: (context) => UserNavigation()));
-    } else if (adminResult == "success") {
-      showSnackBar(context, "Signup Successful");
-
-      // navigating to the next screen with the message
-
-      Navigator.push(
-          context, MaterialPageRoute(builder: (context) => AdminNavbar()));
-    } else {
-      showSnackBar(context, "Signup Failed $result");
+        showSnackBar(context, errorMessage, isError: true);
+      }
+    } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.contains("PlatformException") &&
+          errorMessage.contains("shared_preferences")) {
+        // SharedPreferences error but Firebase auth might have succeeded
+        showSnackBar(context,
+            "Account may have been created, but preferences couldn't be saved. You can try logging in.",
+            isError: false);
+      } else {
+        showSnackBar(context, "An error occurred: $e", isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
-    ;
   }
 
   // controller
@@ -192,7 +267,9 @@ class _UserSignupState extends State<UserSignup> {
                 Expanded(
                   child: GestureDetector(
                     onTap: () {
-                      // Handle T&C click
+                      setState(() {
+                        isChecked = !isChecked;
+                      });
                     },
                     child: Align(
                         child: Transform.translate(
@@ -217,16 +294,20 @@ class _UserSignupState extends State<UserSignup> {
               ],
             ),
           ),
+          SizedBox(height: 10.h),
           isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: CustomColors.secondaryColor,
+                  ),
+                )
               : Column(
                   children: [
                     const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 25),
                       child: CustomWidget.customButton(
-                        onPressed:
-                            _signUp, // Removed extra arrow function "() => _signUp"
+                        onPressed: _signUp,
                         text: "Sign Up",
                         width: double.infinity,
                         height: 52.h,
@@ -255,7 +336,7 @@ class _UserSignupState extends State<UserSignup> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text("Already have an Account?"),
-              SizedBox(width: 4.w),
+              const SizedBox(width: 4),
               GestureDetector(
                 onTap: () {
                   Navigator.push(context,
@@ -271,6 +352,7 @@ class _UserSignupState extends State<UserSignup> {
               ),
             ],
           ),
+          SizedBox(height: 20.h),
         ]))));
   }
 }

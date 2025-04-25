@@ -2,9 +2,21 @@ import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as developer;
 
 class Onboarding1 extends StatelessWidget {
   const Onboarding1({super.key});
+
+  // Record that user has seen onboarding
+  Future<void> _markOnboardingComplete() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('hasSeenOnboarding', true);
+    } catch (e) {
+      developer.log('Error marking onboarding complete: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +53,13 @@ class Onboarding1 extends StatelessWidget {
                     SizedBox(height: 25),
                     ElevatedButton(
                         onPressed: () {
-                          print("Button Clicked");
+                          _markOnboardingComplete();
+                          developer.log("Get Started Button Clicked");
+                          // Navigate to login screen
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => UserLogin()));
                         },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: CustomColors.secondaryColor,
@@ -62,6 +80,7 @@ class Onboarding1 extends StatelessWidget {
                           SizedBox(width: 4),
                           GestureDetector(
                             onTap: () {
+                              _markOnboardingComplete();
                               Navigator.push(
                                   context,
                                   MaterialPageRoute(

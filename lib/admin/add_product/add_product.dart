@@ -27,7 +27,8 @@ class _AdminAddProductState extends State<AdminAddProduct> {
 
   List<Color> selectedColors = []; // To hold the selected colors
   List<XFile> selectedImages = []; // To store selected images
-  String? selectedCategory;
+  String? selectedCategory; // Product type category
+  String? selectedGenderCategory; // Gender category
   List<String> selectedSizes = []; // Store selected sizes
 
   // Adding these maps to store size options per category
@@ -54,7 +55,10 @@ class _AdminAddProductState extends State<AdminAddProduct> {
     ],
     'Watches': ['Small', 'Medium', 'Large'],
     'Ornaments': ['Small', 'Medium', 'Large'],
-    'Sunglasses': ['Small', 'Medium', 'Large']
+    'Sunglasses': ['Small', 'Medium', 'Large'],
+    'Sports': ['S', 'M', 'L', 'XL', 'XXL'],
+    'Formal': ['S', 'M', 'L', 'XL', 'XXL'],
+    'Casual': ['S', 'M', 'L', 'XL', 'XXL']
   };
 
   // Get current sizes based on selected category
@@ -75,6 +79,13 @@ class _AdminAddProductState extends State<AdminAddProduct> {
     });
   }
 
+  // Add gender category selection method
+  void onGenderCategorySelected(String? category) {
+    setState(() {
+      selectedGenderCategory = category;
+    });
+  }
+
   // Function to add product
   Future<void> _addingProduct() async {
     // Validate if all fields are filled properly
@@ -82,6 +93,8 @@ class _AdminAddProductState extends State<AdminAddProduct> {
         descriptionController.text.isNotEmpty &&
         selectedCategory != null &&
         selectedCategory!.isNotEmpty &&
+        selectedGenderCategory != null &&
+        selectedGenderCategory!.isNotEmpty &&
         selectedSizes.isNotEmpty &&
         priceContorller.text.isNotEmpty &&
         selectedColors.isNotEmpty &&
@@ -154,13 +167,14 @@ class _AdminAddProductState extends State<AdminAddProduct> {
           return;
         }
 
-        // Call addProduct method with validated data
+        // Call addProduct method with validated data including both category types
         // Use a timeout to prevent hanging
         final result = await _addProduct
             .addProduct(
               title: titleContorller.text,
               description: descriptionController.text,
               category: selectedCategory!,
+              genderCategory: selectedGenderCategory!,
               price: price,
               color: colorData,
               size: selectedSizes, // Pass the sizes as a list directly
@@ -199,6 +213,7 @@ class _AdminAddProductState extends State<AdminAddProduct> {
             selectedColors = [];
             selectedImages = [];
             selectedCategory = null;
+            selectedGenderCategory = null;
             selectedSizes = [];
           });
         } else {
@@ -372,7 +387,9 @@ class _AdminAddProductState extends State<AdminAddProduct> {
 
                           CategotyAdmin(
                             onCategorySelected: onCategorySelected,
+                            onGenderCategorySelected: onGenderCategorySelected,
                             initialValue: selectedCategory,
+                            initialGenderValue: selectedGenderCategory,
                           ),
                           SizedBox(height: 20.h),
 

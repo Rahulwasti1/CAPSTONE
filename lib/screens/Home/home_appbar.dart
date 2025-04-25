@@ -1,10 +1,10 @@
-import 'package:capstone/constants/colors.dart';
 import 'package:capstone/screens/home/profile_avatar.dart';
 import 'package:capstone/screens/Profile/profile.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:developer' as developer;
 
 class Homeappbar extends StatefulWidget {
   const Homeappbar({super.key});
@@ -17,36 +17,63 @@ class Homeappbar extends StatefulWidget {
 
 class _HomeappbarState extends State<Homeappbar> {
   String username = "";
+  String? photoUrl;
+  String? photoBase64;
 
-  Future<void> _getUsername() async {
+  Future<void> _getUserData() async {
     // Check if the username is already cached.
     if (UserProfile.cachedUsername != null) {
       setState(() {
         username = UserProfile.cachedUsername!;
+        photoUrl = UserProfile.cachedPhotoUrl;
+        photoBase64 = UserProfile.cachedPhotoBase64;
       });
       return;
     }
 
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('userData')
-          .doc(user.uid)
-          .get();
+      try {
+        // First try users collection (new)
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-      String name = userDoc['name'] ?? 'User';
-      // Cache the username.
-      UserProfile.cachedUsername = name;
-      setState(() {
-        username = name;
-      });
+        // If not found, try userData collection (old)
+        if (!userDoc.exists) {
+          userDoc = await FirebaseFirestore.instance
+              .collection('userData')
+              .doc(user.uid)
+              .get();
+        }
+
+        if (userDoc.exists) {
+          Map<String, dynamic> userData =
+              userDoc.data() as Map<String, dynamic>;
+          String name = userData['username'] ?? userData['name'] ?? 'User';
+
+          // Cache the user data
+          UserProfile.cachedUsername = name;
+          UserProfile.cachedPhotoUrl = userData['photoUrl'];
+          UserProfile.cachedPhotoBase64 = userData['photoBase64'];
+
+          setState(() {
+            username = name;
+            photoUrl = userData['photoUrl'];
+            photoBase64 = userData['photoBase64'];
+          });
+        }
+      } catch (e) {
+        developer.log('Error getting user data: $e');
+      }
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _getUsername();
+    _getUserData();
   }
 
   @override
@@ -61,7 +88,11 @@ class _HomeappbarState extends State<Homeappbar> {
                 Navigator.push(context,
                     MaterialPageRoute(builder: (context) => UserProfile()));
               },
-              child: profileAvatar(circle: 27)
+              child: ProfileAvatar(
+                circle: 27,
+                imageUrl: photoUrl,
+                imageBase64: photoBase64,
+              )
               // child: Container(
               //   decoration: BoxDecoration(
               //       borderRadius: BorderRadius.circular(10),
@@ -97,7 +128,7 @@ class _HomeappbarState extends State<Homeappbar> {
             offset: Offset(15.w, 0.h),
             child: ElevatedButton(
               onPressed: () {
-                print("Notification Button Clicked");
+                developer.log("Notification Button Clicked");
               },
               style: ElevatedButton.styleFrom(
                 elevation: 0.1,

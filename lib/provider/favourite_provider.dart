@@ -1,48 +1,74 @@
-// If the cart does not contains product then add otherwise increase the quantity if same product consiste
+// Favorites provider with enhanced functionality
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'dart:developer' as developer;
 
 // Making a provider
 class FavoriteProvider with ChangeNotifier {
-  final Map<String, bool> _favoriteItems = {};
+  final Set<String> _favoriteIds = {};
 
-  Map<String, bool> get items {
-    return {..._favoriteItems};
-  }
+  Set<String> get favoriteIds => _favoriteIds;
 
-  int get favoriteCount {
-    return _favoriteItems.values.where((isFavorite) => isFavorite).length;
-  }
-
-  bool isFavorite(String productId) {
-    return _favoriteItems[productId] ?? false;
-  }
+  bool isFavorite(String productId) => _favoriteIds.contains(productId);
 
   void toggleFavorite(String productId) {
-    final currentStatus = _favoriteItems[productId] ?? false;
-    _favoriteItems[productId] = !currentStatus;
+    if (_favoriteIds.contains(productId)) {
+      _favoriteIds.remove(productId);
+    } else {
+      _favoriteIds.add(productId);
+    }
     notifyListeners();
+    _saveFavorites();
   }
 
   void removeFromFavorites(String productId) {
-    _favoriteItems.remove(productId);
+    _favoriteIds.remove(productId);
     notifyListeners();
+    _saveFavorites();
   }
 
-  List<String> get favoriteProductIds {
-    return _favoriteItems.entries
-        .where((entry) => entry.value)
-        .map((entry) => entry.key)
-        .toList();
+  List<String> favoriteProductIds() {
+    return _favoriteIds.toList();
   }
 
   void clear() {
-    _favoriteItems.clear();
+    _favoriteIds.clear();
     notifyListeners();
+    _saveFavorites();
+  }
+
+  // Load favorites from SharedPreferences
+  Future<void> loadFavorites() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? favoritesJson = prefs.getString('favorites');
+      if (favoritesJson != null) {
+        final List<dynamic> favoritesList = jsonDecode(favoritesJson);
+        _favoriteIds.clear();
+        _favoriteIds.addAll(favoritesList.cast<String>());
+        notifyListeners();
+      }
+    } catch (e) {
+      developer.log('Error loading favorites: $e');
+    }
+  }
+
+  // Save favorites to SharedPreferences
+  Future<void> _saveFavorites() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String favoritesJson = jsonEncode(List<String>.from(_favoriteIds));
+      await prefs.setString('favorites', favoritesJson);
+    } catch (e) {
+      developer.log('Error saving favorites: $e');
+    }
   }
 
   // Helper method to get the favorites provider from context
-  static FavoriteProvider of(BuildContext context, {bool listen = true}) {
-    return Provider.of<FavoriteProvider>(context, listen: listen);
+  static FavoriteProvider of(BuildContext context) {
+    return Provider.of<FavoriteProvider>(context, listen: false);
   }
 }

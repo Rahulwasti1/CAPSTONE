@@ -8,6 +8,7 @@ import 'package:capstone/service/product_service.dart';
 import 'package:capstone/widget/product_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:developer' as developer;
 
 class Userhome extends StatefulWidget {
   const Userhome({super.key});
@@ -44,7 +45,7 @@ class _UserhomeState extends State<Userhome> {
         _isLoading = false;
       });
     } catch (e) {
-      print("Error fetching flash sale products: $e");
+      developer.log("Error fetching flash sale products: $e");
       setState(() {
         _isLoading = false;
       });
@@ -122,25 +123,20 @@ class _UserhomeState extends State<Userhome> {
                               fontSize: 18.sp,
                               fontWeight: FontWeight.w600,
                               color: CustomColors.secondaryColor)),
-                      SizedBox(width: 200.w),
-                      Align(
-                        child: Transform.translate(
-                          offset: Offset(9.w, 0.h),
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) => UserCategories()));
-                            },
-                            child: Text("See All",
-                                style: TextStyle(
-                                    fontSize: 11.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: CustomColors.secondaryColor)),
-                          ),
-                        ),
-                      )
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => UserCategories()));
+                        },
+                        child: Text("See All",
+                            style: TextStyle(
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w600,
+                                color: CustomColors.secondaryColor)),
+                      ),
                     ],
                   ),
                   SizedBox(height: 10.h),
@@ -194,7 +190,7 @@ class _UserhomeState extends State<Userhome> {
                   ),
                   SizedBox(height: 15.h),
 
-                  // Flash Sale Products - Vertical Layout
+                  // Flash Sale Products - Vertical Grid Layout
                   Container(
                     width: double.infinity,
                     child: _isLoading
@@ -219,18 +215,17 @@ class _UserhomeState extends State<Userhome> {
                                 gridDelegate:
                                     SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  childAspectRatio: 0.7,
-                                  crossAxisSpacing: 15.w,
-                                  mainAxisSpacing: 20.h,
+                                  childAspectRatio: 0.85,
+                                  crossAxisSpacing: 8.w,
+                                  mainAxisSpacing: 8.h,
                                 ),
                                 itemCount: _flashSaleProducts.length,
                                 itemBuilder: (context, index) {
                                   return Stack(
                                     children: [
-                                      ProductCard(
+                                      FlashSaleProductCard(
                                         product: _flashSaleProducts[index],
                                         onTap: () {
-                                          // Navigate to product detail page
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
@@ -243,31 +238,27 @@ class _UserhomeState extends State<Userhome> {
                                           );
                                         },
                                       ),
-                                      // Positioned widget for the favorite icon
                                       Positioned(
                                         top: 0,
                                         right: 0,
-                                        child: Align(
-                                          alignment: Alignment.topRight,
-                                          child: Container(
-                                            height: 40,
-                                            width: 40,
-                                            decoration: const BoxDecoration(
-                                                color:
-                                                    CustomColors.secondaryColor,
-                                                borderRadius: BorderRadius.only(
-                                                    topRight:
-                                                        Radius.circular(20),
-                                                    bottomLeft:
-                                                        Radius.circular(20))),
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                // Handle the favorite button tap action here
-                                              },
-                                              child: Icon(
-                                                Icons.favorite_border,
-                                                color: Colors.white,
-                                              ),
+                                        child: Container(
+                                          height: 32.h,
+                                          width: 32.w,
+                                          decoration: BoxDecoration(
+                                            color: CustomColors.secondaryColor,
+                                            borderRadius: BorderRadius.only(
+                                              topRight: Radius.circular(10.r),
+                                              bottomLeft: Radius.circular(10.r),
+                                            ),
+                                          ),
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              // Handle favorite
+                                            },
+                                            child: Icon(
+                                              Icons.favorite_border,
+                                              color: Colors.white,
+                                              size: 18.sp,
                                             ),
                                           ),
                                         ),

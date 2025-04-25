@@ -99,6 +99,7 @@ class AddingProduct {
     required dynamic size, // Accept either String or List<String>
     required List<String> color,
     required String category,
+    required String genderCategory,
     required double price,
     required List<XFile> images, // Pass images as List<XFile>
   }) async {
@@ -109,6 +110,7 @@ class AddingProduct {
       if (title.isEmpty ||
           description.isEmpty ||
           category.isEmpty ||
+          genderCategory.isEmpty ||
           (size is String && size.isEmpty) ||
           (size is List && size.isEmpty) ||
           color.isEmpty ||
@@ -193,13 +195,14 @@ class AddingProduct {
         sizesList = [];
       }
 
-      // Product data with all processed images
+      // Product data with all processed images and gender category
       final Map<String, dynamic> productData = {
         'title': title,
         'description': description,
         'sizes': sizesList, // Store as array of sizes
         'colors': color,
         'category': category,
+        'genderCategory': genderCategory, // Add gender category
         'price': price,
         'imageURLs': imageBase64List, // Store ALL processed images
         'addedByAdmin': Timestamp.now(),

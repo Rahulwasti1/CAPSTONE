@@ -1,13 +1,13 @@
-import 'package:capstone/admin/admin_navbar.dart';
 import 'package:capstone/service/admin_auth.dart';
 import 'package:capstone/service/auth_service.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/signup.dart';
-import 'package:capstone/navigation_bar.dart';
 import 'package:capstone/screens/widget.dart';
 import 'package:capstone/widget/snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:developer' as developer;
 
 class UserLogin extends StatefulWidget {
   const UserLogin({super.key});
@@ -20,49 +20,95 @@ class _UserLoginState extends State<UserLogin> {
   bool isChecked = false;
   bool _isObsecure = true;
   bool isLoading = false;
+  bool isAdmin = false;
   final AuthService _authService = AuthService();
   final AdminAuthService _adminAuthService = AdminAuthService();
 
-  // Signup function to handle user registration
-
-  void _login() async {
-    setState(() {
-      isLoading = true;
-    });
-
-    // calling the method for user
-    final result = await _authService.loginUser(
-      email: emailContorller.text,
-      password: passwordContorller.text,
-    );
-
-    // calling the method for admin
-    final adminResult = await _adminAuthService.loginAdmin(
-      email: emailContorller.text,
-      password: passwordContorller.text,
-    );
-
-    // If user login is successful
-    if (result == "success") {
-      showSnackBar(context, "Login Successful");
-
-      // navigating to the next screen with the message
-
-      Navigator.push(
-          context, MaterialPageRoute(builder: (context) => UserNavigation()));
+  // Validate form fields
+  bool _validateFields() {
+    if (emailContorller.text.isEmpty) {
+      showSnackBar(context, "Please enter your email", isError: true);
+      return false;
     }
-    // If admin login is successful
-    else if (adminResult == "success") {
-      showSnackBar(context, "Login Successful");
 
-      // navigating to the next screen with the message
-
-      Navigator.push(
-          context, MaterialPageRoute(builder: (context) => AdminNavbar()));
-    } else {
-      showSnackBar(context, "Login Failed $result");
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+        .hasMatch(emailContorller.text)) {
+      showSnackBar(context, "Please enter a valid email address",
+          isError: true);
+      return false;
     }
-    ;
+
+    if (passwordContorller.text.isEmpty) {
+      showSnackBar(context, "Please enter your password", isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
+  // Login function
+  Future<void> _login() async {
+    if (_validateFields()) {
+      try {
+        setState(() {
+          isLoading = true;
+        });
+        if (isAdmin) {
+          // Admin login
+          String result = await _adminAuthService.loginAdmin(
+            email: emailContorller.text.trim(),
+            password: passwordContorller.text.trim(),
+          );
+
+          if (result == "success") {
+            developer.log('Admin login successful');
+
+            // Pop back to authentication wrapper
+            if (mounted) {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            }
+          } else {
+            throw FirebaseAuthException(code: 'invalid-login', message: result);
+          }
+        } else {
+          // User login
+          String result = await _authService.loginUser(
+            email: emailContorller.text.trim(),
+            password: passwordContorller.text.trim(),
+          );
+
+          if (result == "success") {
+            developer.log('User login successful');
+
+            // Pop back to authentication wrapper
+            if (mounted) {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            }
+          } else {
+            throw FirebaseAuthException(code: 'invalid-login', message: result);
+          }
+        }
+      } catch (e) {
+        developer.log('Login error: $e');
+        String errorMessage = 'Login failed. Please check your credentials.';
+        if (e is FirebaseAuthException) {
+          if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+            errorMessage = 'Invalid email or password.';
+          } else if (e.code == 'user-disabled') {
+            errorMessage = 'This account has been disabled.';
+          } else {
+            errorMessage = e.message ?? errorMessage;
+          }
+        }
+        showSnackBar(context, errorMessage, isError: true);
+      } finally {
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
+      }
+    }
   }
 
   // Controller
@@ -125,7 +171,7 @@ class _UserLoginState extends State<UserLogin> {
 
   Widget customLoginIcon({required String image}) {
     return ElevatedButton(
-      onPressed: () => print("Login"),
+      onPressed: () => developer.log("Login"),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         elevation: 0.1,
@@ -200,16 +246,19 @@ class _UserLoginState extends State<UserLogin> {
           ),
           SizedBox(height: 20.h),
           isLoading
-              ? Center(child: CircularProgressIndicator())
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: CustomColors.secondaryColor,
+                  ),
+                )
               : Column(
                   children: [
                     const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 25),
                       child: CustomWidget.customButton(
-                        onPressed:
-                            _login, // Removed extra arrow function "() => _signUp"
-                        text: "Sign Up",
+                        onPressed: _login,
+                        text: "Sign In",
                         width: double.infinity,
                         height: 52.h,
                       ),

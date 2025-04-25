@@ -33,9 +33,9 @@
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-<string>Your message explaining why you need access to the photo library</string>
+	<string>Photo library access is needed to select product images and save virtual try-on photos</string>
 <key>NSCameraUsageDescription</key>
-<string>Your message explaining why you need access to the camera</string>
+	<string>Camera access is needed for the virtual try-on feature to see how products look on you</string>
 
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

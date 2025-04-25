@@ -2,16 +2,20 @@ import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/login.dart';
 import 'package:capstone/screens/home/profile_avatar.dart';
 import 'package:capstone/widget/user_appbar.dart';
+import 'package:capstone/screens/Profile/edit_profile.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:developer' as developer;
 
 class UserProfile extends StatefulWidget {
   const UserProfile({super.key});
 
   // Static variable to cache the username.
   static String? cachedUsername;
+  static String? cachedPhotoUrl;
+  static String? cachedPhotoBase64;
 
   @override
   State<UserProfile> createState() => _UserProfileState();
@@ -31,17 +35,38 @@ class _UserProfileState extends State<UserProfile> {
 
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('userData')
-          .doc(user.uid)
-          .get();
+      try {
+        // First try users collection (new)
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-      String name = userDoc['name'] ?? 'User';
-      // Cache the username.
-      UserProfile.cachedUsername = name;
-      setState(() {
-        username = name;
-      });
+        // If not found, try userData collection (old)
+        if (!userDoc.exists) {
+          userDoc = await FirebaseFirestore.instance
+              .collection('userData')
+              .doc(user.uid)
+              .get();
+        }
+
+        if (userDoc.exists) {
+          Map<String, dynamic> userData =
+              userDoc.data() as Map<String, dynamic>;
+          String name = userData['username'] ?? userData['name'] ?? 'User';
+
+          // Cache all user data
+          UserProfile.cachedUsername = name;
+          UserProfile.cachedPhotoUrl = userData['photoUrl'];
+          UserProfile.cachedPhotoBase64 = userData['photoBase64'];
+
+          setState(() {
+            username = name;
+          });
+        }
+      } catch (e) {
+        developer.log('Error getting user data: $e');
+      }
     }
   }
 
@@ -61,11 +86,13 @@ class _UserProfileState extends State<UserProfile> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              UserAppbar(),
+              UserAppbar(text: "Profile"),
               Container(
                   decoration: BoxDecoration(shape: BoxShape.circle),
-                  child: profileAvatar(
+                  child: ProfileAvatar(
                     circle: 60,
+                    imageUrl: UserProfile.cachedPhotoUrl,
+                    imageBase64: UserProfile.cachedPhotoBase64,
                   )),
               // Align(
               //     child: Transform.translate(
@@ -109,8 +136,26 @@ class _UserProfileState extends State<UserProfile> {
                     icon: Icons.person,
                     text: "Personal Data",
                     icon1: Icons.arrow_forward_ios_rounded,
-                    onTap: () {
-                      print("object");
+                    onTap: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfileScreen(
+                            currentName: username,
+                            currentPhotoUrl: UserProfile.cachedPhotoUrl,
+                            currentPhotoBase64: UserProfile.cachedPhotoBase64,
+                          ),
+                        ),
+                      );
+
+                      if (result != null && mounted) {
+                        setState(() {
+                          username = result['username'];
+                          UserProfile.cachedUsername = result['username'];
+                          UserProfile.cachedPhotoUrl = result['photoUrl'];
+                          UserProfile.cachedPhotoBase64 = result['photoBase64'];
+                        });
+                      }
                     }),
               ),
               SizedBox(height: 20.h),
@@ -129,7 +174,7 @@ class _UserProfileState extends State<UserProfile> {
                       text: "Dark Mode",
                       icon1: Icons.arrow_forward_ios_rounded,
                       onTap: () {
-                        print("object");
+                        developer.log("Dark Mode tapped");
                       })),
               SizedBox(height: 5.h),
               Padding(
@@ -139,7 +184,7 @@ class _UserProfileState extends State<UserProfile> {
                       text: "Info App",
                       icon1: Icons.arrow_forward_ios_rounded,
                       onTap: () {
-                        print("object");
+                        developer.log("Info App tapped");
                       })),
               SizedBox(height: 5.h),
               Padding(
@@ -149,7 +194,7 @@ class _UserProfileState extends State<UserProfile> {
                       text: "Privacy Policy",
                       icon1: Icons.arrow_forward_ios_rounded,
                       onTap: () {
-                        print("object");
+                        developer.log("Privacy Policy tapped");
                       })),
               SizedBox(height: 5.h),
               Padding(
@@ -159,7 +204,7 @@ class _UserProfileState extends State<UserProfile> {
                       text: "Terms and Conditions",
                       icon1: Icons.arrow_forward_ios_rounded,
                       onTap: () {
-                        print("object");
+                        developer.log("Terms and Conditions tapped");
                       })),
 
               SizedBox(height: 5.h),

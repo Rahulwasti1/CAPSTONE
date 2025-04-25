@@ -16,7 +16,7 @@ class _UserTryOnState extends State<UserTryOn> {
         backgroundColor: Colors.white,
         body: SafeArea(
             child: Column(
-          children: [UserAppbar()],
+          children: [UserAppbar(text: "Try On")],
         ))),
     );
   }

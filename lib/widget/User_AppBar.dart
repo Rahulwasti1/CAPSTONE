@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class UserAppbar extends StatelessWidget {
-  const UserAppbar({super.key});
+  final String text;
+  const UserAppbar({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +30,11 @@ class UserAppbar extends StatelessWidget {
               child: Icon(Icons.arrow_back,
                   size: 20.sp, color: const Color.fromARGB(255, 31, 31, 30))),
           SizedBox(width: 70.w),
-          Text(
-            "Category",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
-          )
+          
+Text(
+  text,
+  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+)
         ],
       ),
     );

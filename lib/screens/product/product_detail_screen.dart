@@ -1,8 +1,13 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:capstone/constants/colors.dart';
+import 'package:capstone/provider/cart_provider.dart';
+import 'package:capstone/screens/camera/camera_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:camera/camera.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -24,73 +29,41 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   final PageController _pageController = PageController();
   late TabController _tabController;
   String? selectedColor;
+  List<String> _imageUrls = [];
 
   @override
   void initState() {
     super.initState();
+
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       setState(() {
         _selectedTabIndex = _tabController.index;
       });
     });
+
+    // Process product images in initState
+    _processProductImages();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Extract product details
-    String title =
-        widget.product['title'] as String? ?? "Caliber Shoes Coffee Sneakers";
-    String description = widget.product['description'] as String? ??
-        "Sail smoothly from work to party, with our stylishly comfy CONOR 567SK which is a classic example for effortless fashion. Made out of the oil-pull microfiber material with a stroke of suede on the upper part and a cushioned cloth lining that provides a comfortable fit all day long.";
-    String price = widget.product['price'] != null
-        ? "Rs ${widget.product['price']}"
-        : "Rs 1710.0";
-
+  void _processProductImages() {
     // For debugging - print the product data to see all fields
-    print("Product data: ${widget.product}");
+    developer.log("Processing product images: ${widget.product['title']}");
 
     // Improved image handling - handle multiple scenarios
     List<String> imageURLs = [];
 
-    // Case 1: Standard list of images
-    if (widget.product['imageURLs'] != null &&
-        widget.product['imageURLs'] is List) {
-      imageURLs = List<String>.from(widget.product['imageURLs']);
-    }
-    // Case 2: Single string with images separated by delimiters
-    else if (widget.product['imageURLs'] != null &&
-        widget.product['imageURLs'] is String) {
-      String imagesStr = widget.product['imageURLs'] as String;
+    // Case 1: 'imageURLs' field (list of base64 strings)
+    if (widget.product['imageURLs'] != null) {
+      if (widget.product['imageURLs'] is List) {
+        // When it's already a list
+        imageURLs = List<String>.from(widget.product['imageURLs']);
+        developer.log("Found imageURLs as List: ${imageURLs.length} images");
+      } else if (widget.product['imageURLs'] is String) {
+        // When it's a string with multiple base64 images
+        String imagesStr = widget.product['imageURLs'] as String;
 
-      // Try common delimiters - semicolon, comma, pipe
-      if (imagesStr.contains(';')) {
-        imageURLs =
-            imagesStr.split(';').where((img) => img.trim().isNotEmpty).toList();
-      } else if (imagesStr.contains(',')) {
-        imageURLs =
-            imagesStr.split(',').where((img) => img.trim().isNotEmpty).toList();
-      } else if (imagesStr.contains('|')) {
-        imageURLs =
-            imagesStr.split('|').where((img) => img.trim().isNotEmpty).toList();
-      } else {
-        // If no delimiter is found but it's a valid base64 string, treat as single image
-        imageURLs = [imagesStr];
-      }
-    }
-    // Case 3: Try other possible field names
-    else if (widget.product['images'] != null) {
-      if (widget.product['images'] is List) {
-        imageURLs = List<String>.from(widget.product['images']);
-      } else if (widget.product['images'] is String) {
-        String imagesStr = widget.product['images'] as String;
+        // Try common delimiters
         if (imagesStr.contains(';')) {
           imageURLs = imagesStr
               .split(';')
@@ -107,100 +80,207 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               .where((img) => img.trim().isNotEmpty)
               .toList();
         } else {
+          // If no delimiter is found, treat as single image
           imageURLs = [imagesStr];
         }
+        developer.log(
+            "Found imageURLs as String, parsed: ${imageURLs.length} images");
       }
     }
-
-    // Debugging image processing
-    print("Found ${imageURLs.length} images");
-    if (imageURLs.isNotEmpty) {
-      print(
-          "First image begins with: ${imageURLs[0].substring(0, min(20, imageURLs[0].length))}...");
+    // Case 2: Check 'images' field
+    else if (widget.product['images'] != null) {
+      if (widget.product['images'] is List) {
+        imageURLs = List<String>.from(widget.product['images']);
+        developer.log("Found images as List: ${imageURLs.length} images");
+      } else if (widget.product['images'] is String) {
+        try {
+          // Try to parse as JSON array if it's a stringified array
+          final decoded = jsonDecode(widget.product['images'] as String);
+          if (decoded is List) {
+            imageURLs = List<String>.from(decoded);
+          } else {
+            imageURLs = [widget.product['images'] as String];
+          }
+        } catch (e) {
+          // If not JSON, treat as single image or try delimiters
+          String imagesStr = widget.product['images'] as String;
+          if (imagesStr.contains(';')) {
+            imageURLs = imagesStr
+                .split(';')
+                .where((img) => img.trim().isNotEmpty)
+                .toList();
+          } else if (imagesStr.contains(',')) {
+            imageURLs = imagesStr
+                .split(',')
+                .where((img) => img.trim().isNotEmpty)
+                .toList();
+          } else if (imagesStr.contains('|')) {
+            imageURLs = imagesStr
+                .split('|')
+                .where((img) => img.trim().isNotEmpty)
+                .toList();
+          } else {
+            imageURLs = [imagesStr];
+          }
+        }
+        developer
+            .log("Found images as String, parsed: ${imageURLs.length} images");
+      }
     }
+    // Case 3: Check 'imageUrl' field (single image)
+    else if (widget.product['imageUrl'] != null &&
+        widget.product['imageUrl'].toString().isNotEmpty) {
+      imageURLs = [widget.product['imageUrl'].toString()];
+      developer.log("Found single imageUrl");
+    }
+    // Case 4: Check 'image' field (single image)
+    else if (widget.product['image'] != null &&
+        widget.product['image'].toString().isNotEmpty) {
+      imageURLs = [widget.product['image'].toString()];
+      developer.log("Found single image");
+    }
+
+    // Filter out any empty strings or invalid entries
+    imageURLs = imageURLs.where((url) => url.trim().isNotEmpty).toList();
+
+    if (imageURLs.isNotEmpty) {
+      developer.log("Final image count: ${imageURLs.length}");
+      if (imageURLs.isNotEmpty) {
+        developer.log(
+            "First image sample: ${imageURLs[0].substring(0, min(20, imageURLs[0].length))}...");
+      }
+    } else {
+      developer.log("No images found for this product");
+    }
+
+    setState(() {
+      _imageUrls = imageURLs;
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // Navigate directly to camera screen instead of rechecking permissions
+  Future<void> _startTryOn() async {
+    // Get available cameras
+    final cameras = await availableCameras();
+
+    if (cameras.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No cameras available on this device')),
+      );
+      return;
+    }
+
+    // Check if we have a product image to use for the try-on
+    if (_imageUrls.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('No product image available for virtual try-on')),
+      );
+      return;
+    }
+
+    // Use the first image for the try-on
+    final String productImageBase64 = _imageUrls.first;
+
+    // Navigate to camera screen directly
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CameraScreen(
+          cameras: cameras,
+          title: widget.product['title'] ?? 'Product',
+          category: widget.product['category'] ?? 'Other',
+          productImageBase64: productImageBase64,
+        ),
+      ),
+    );
+  }
+
+  // Fallback image widget
+  Widget _buildFallbackImage() {
+    return Container(
+      color: Colors.grey[200],
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+            SizedBox(height: 10),
+            Text(
+              "Image not available",
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Check if the product is in the sunglasses category
+  bool _isSunglassesCategory() {
+    final String category =
+        widget.product['category']?.toString().toLowerCase() ?? '';
+    return category == 'sunglasses' ||
+        category == 'eyewear' ||
+        category.contains('glass');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Extract product details
+    String title = widget.product['title'] as String? ?? "Product Name";
+    String description =
+        widget.product['description'] as String? ?? "No description available.";
+    String price = widget.product['price'] != null
+        ? "Rs ${widget.product['price']}"
+        : "Price not available";
 
     // Get colors from the product data
-    List<String> colors = [];
+    List<String> availableColors = [];
     if (widget.product['colors'] != null && widget.product['colors'] is List) {
-      colors = List<String>.from(widget.product['colors']);
-      // Select the first color by default if none is selected
-      if (selectedColor == null && colors.isNotEmpty) {
-        selectedColor = colors[0];
-      }
+      availableColors = List<String>.from(widget.product['colors']);
     }
 
-    // Get sizes from the product data - check multiple possible field names
-    List<String> sizes = [];
-    // Check various possible field names that might be in your Firestore
-    if (widget.product['sizes'] != null && widget.product['sizes'] is List) {
-      sizes = List<String>.from(widget.product['sizes']);
-    } else if (widget.product['size'] != null &&
-        widget.product['size'] is List) {
-      sizes = List<String>.from(widget.product['size']);
-    } else if (widget.product['availableSizes'] != null &&
-        widget.product['availableSizes'] is List) {
-      sizes = List<String>.from(widget.product['availableSizes']);
-    } else if (widget.product['available_sizes'] != null &&
-        widget.product['available_sizes'] is List) {
-      sizes = List<String>.from(widget.product['available_sizes']);
-    }
-
-    // If it might be stored as a string with comma separation
-    else if (widget.product['sizes'] is String) {
-      sizes = (widget.product['sizes'] as String)
-          .split(',')
-          .map((size) => size.trim())
-          .toList();
-    } else if (widget.product['size'] is String) {
-      sizes = (widget.product['size'] as String)
-          .split(',')
-          .map((size) => size.trim())
-          .toList();
-    }
-
-    // Select first size by default
-    if (selectedSize == null && sizes.isNotEmpty) {
-      selectedSize = sizes[0];
-    }
-
-    // Join sizes for display in specifications
-    String availableSizesText =
-        sizes.isEmpty ? "Not specified" : sizes.join(", ");
-
-    // Get all specifications from the product for the specifications tab
-    Map<String, dynamic> specifications = {};
-
-    // Add fields to specifications if they exist in the product data
-    if (widget.product['brand'] != null)
-      specifications['Brand'] = widget.product['brand'];
-    if (widget.product['type'] != null)
-      specifications['Type'] = widget.product['type'];
-    if (widget.product['category'] != null)
-      specifications['Category'] = widget.product['category'];
-    if (widget.product['material'] != null)
-      specifications['Material'] = widget.product['material'];
-    if (widget.product['innerLining'] != null)
-      specifications['Inner Lining'] = widget.product['innerLining'];
-    if (widget.product['origin'] != null)
-      specifications['Origin'] = widget.product['origin'];
-
-    // Handle sizes specially
+    // Get sizes from the product data
+    List<String> availableSizes = [];
     if (widget.product['sizes'] != null) {
       if (widget.product['sizes'] is List) {
-        specifications['Available Sizes'] =
-            (widget.product['sizes'] as List).join(', ');
+        availableSizes = List<String>.from(widget.product['sizes']);
       } else if (widget.product['sizes'] is String) {
-        specifications['Available Sizes'] = widget.product['sizes'];
+        availableSizes = (widget.product['sizes'] as String)
+            .split(',')
+            .map((size) => size.trim())
+            .where((size) => size.isNotEmpty)
+            .toList();
       }
     }
 
-    // Default specifications if none are available
-    if (specifications.isEmpty) {
-      specifications = {
-        'Brand': 'Caliber',
-        'Type': 'Premium Product',
-        'Available Sizes': selectedSize,
-      };
+    // Handle empty values
+    if (availableSizes.isEmpty) {
+      availableSizes = ['Free Size'];
+    }
+
+    if (availableColors.isEmpty) {
+      availableColors = ['Default'];
+    }
+
+    // Set initial defaults
+    if (selectedSize == null && availableSizes.isNotEmpty) {
+      selectedSize = availableSizes.first;
+    }
+
+    if (selectedColor == null && availableColors.isNotEmpty) {
+      selectedColor = availableColors.first;
     }
 
     return Scaffold(
@@ -220,7 +300,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ),
                   Row(
                     children: [
-                       IconButton(
+                      IconButton(
                         icon: Icon(
                           isLiked ? Icons.favorite : Icons.favorite_border,
                           size: 24,
@@ -257,7 +337,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                           // Image carousel
                           PageView.builder(
                             controller: _pageController,
-                            itemCount: imageURLs.isEmpty ? 1 : imageURLs.length,
+                            itemCount:
+                                _imageUrls.isEmpty ? 1 : _imageUrls.length,
                             onPageChanged: (index) {
                               setState(() {
                                 currentImageIndex = index;
@@ -266,24 +347,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                             itemBuilder: (context, index) {
                               return Padding(
                                 padding: EdgeInsets.all(20),
-                                child: imageURLs.isNotEmpty
+                                child: _imageUrls.isNotEmpty
                                     ? Builder(
                                         builder: (context) {
                                           try {
                                             // Attempt to decode and display the image
                                             return Image.memory(
-                                              base64Decode(imageURLs[index]),
+                                              base64Decode(_imageUrls[index]),
                                               fit: BoxFit.contain,
                                               errorBuilder:
                                                   (context, error, stackTrace) {
-                                                print(
+                                                developer.log(
                                                     "Image decode error: $error");
                                                 return _buildFallbackImage();
                                               },
                                             );
                                           } catch (e) {
                                             // Handle any base64 decoding exceptions
-                                            print("Image exception: $e");
+                                            developer
+                                                .log("Image exception: $e");
                                             return _buildFallbackImage();
                                           }
                                         },
@@ -294,7 +376,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                           ),
 
                           // Image navigation dots
-                          if (imageURLs.length > 1)
+                          if (_imageUrls.length > 1)
                             Positioned(
                               bottom: 10,
                               left: 0,
@@ -302,7 +384,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: List.generate(
-                                  imageURLs.length,
+                                  _imageUrls.length,
                                   (index) => Container(
                                     width: currentImageIndex == index ? 16 : 8,
                                     height: 8,
@@ -364,20 +446,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                             ),
                           ),
                           SizedBox(height: 10),
-                          colors.isEmpty
+                          availableColors.isEmpty
                               ? Container(
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: Color(
-                                        0xFF6C4024), // Default brown if no colors
+                                    color: Colors
+                                        .brown, // Default brown if no colors
                                     shape: BoxShape.circle,
                                   ),
                                 )
                               : SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
-                                    children: colors.map((colorCode) {
+                                    children: availableColors.map((colorCode) {
+                                      // Try to parse color code, with fallback
+                                      Color color;
+                                      try {
+                                        color = Color(int.parse(
+                                            colorCode.replaceAll("#", "0xFF")));
+                                      } catch (e) {
+                                        // Default to a brown color if parse fails
+                                        color = Colors.brown;
+                                      }
+
                                       return GestureDetector(
                                         onTap: () {
                                           setState(() {
@@ -389,7 +481,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                                           height: 40,
                                           margin: EdgeInsets.only(right: 15),
                                           decoration: BoxDecoration(
-                                            color: Color(int.parse(colorCode)),
+                                            color: color,
                                             shape: BoxShape.circle,
                                             border: Border.all(
                                               color: colorCode == selectedColor
@@ -422,7 +514,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                             ),
                           ),
                           SizedBox(height: 10),
-                          sizes.isEmpty
+                          availableSizes.isEmpty
                               ? Container(
                                   // Show a single default size if no sizes available
                                   width: 60,
@@ -445,7 +537,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                               : SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
-                                    children: sizes.map((size) {
+                                    children: availableSizes.map((size) {
                                       bool isSelected = selectedSize == size;
                                       return GestureDetector(
                                         onTap: () {
@@ -588,10 +680,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                           SingleChildScrollView(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: specifications.entries.map((entry) {
-                                return _buildSpecRow(
-                                    entry.key, entry.value.toString());
-                              }).toList(),
+                              children: _buildSpecRows(
+                                  availableSizes, availableColors),
                             ),
                           ),
                         ],
@@ -619,28 +709,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               padding: EdgeInsets.all(16),
               child: Row(
                 children: [
-                  // Try On button
+                  // Try On button - only enable for sunglasses category
                   Container(
                     width: 110,
                     margin: EdgeInsets.only(right: 10),
                     decoration: BoxDecoration(
-                      border: Border.all(color: CustomColors.secondaryColor),
+                      border: Border.all(
+                          color: _isSunglassesCategory()
+                              ? CustomColors.secondaryColor
+                              : Colors.grey),
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: TextButton.icon(
                       icon: Icon(Icons.camera_alt,
-                          color: CustomColors.secondaryColor),
+                          color: _isSunglassesCategory()
+                              ? CustomColors.secondaryColor
+                              : Colors.grey),
                       label: Text(
                         "Try On",
                         style: TextStyle(
-                          color: CustomColors.secondaryColor,
+                          color: _isSunglassesCategory()
+                              ? CustomColors.secondaryColor
+                              : Colors.grey,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
-                      onPressed: () {
-                        // Try on functionality
-                      },
+                      onPressed: _isSunglassesCategory()
+                          ? _startTryOn
+                          : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'Virtual try-on is only available for sunglasses'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
                     ),
                   ),
 
@@ -654,11 +759,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                       ),
                       child: TextButton(
                         onPressed: () {
+                          if (selectedColor == null || selectedSize == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please select color and size'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
+
+                          final cartProvider =
+                              Provider.of<CartProvider>(context, listen: false);
+                          cartProvider.addItem(
+                            productId: widget.product['id'],
+                            title: widget.product['title'],
+                            price: widget.product['price'],
+                            imageUrl:
+                                _imageUrls.isNotEmpty ? _imageUrls.first : '',
+                            color: selectedColor!,
+                            size: selectedSize!,
+                          );
+
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
+                            const SnackBar(
                               content: Text('Added to cart'),
-                              backgroundColor: Colors.green,
-                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 2),
                             ),
                           );
                         },
@@ -680,6 +806,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         ),
       ),
     );
+  }
+
+  List<Widget> _buildSpecRows(List<String> sizes, List<String> colors) {
+    List<Widget> rows = [];
+
+    // Use product category if available
+    String category = widget.product['category'] as String? ?? 'Product';
+
+    rows.add(
+        _buildSpecRow('Brand', widget.product['brand'] as String? ?? 'Brand'));
+    rows.add(_buildSpecRow('Type', 'Premium Product'));
+    rows.add(_buildSpecRow('Category', category));
+
+    // Add more specs if available in the product data
+    if (widget.product['material'] != null) {
+      rows.add(_buildSpecRow('Material', widget.product['material']));
+    } else {
+      rows.add(_buildSpecRow('Material', 'Premium Material'));
+    }
+
+    rows.add(_buildSpecRow('Available Sizes', sizes.join(', ')));
+    rows.add(_buildSpecRow('Available Colors', colors.length.toString()));
+
+    return rows;
   }
 
   Widget _buildSpecRow(String label, String value) {
@@ -711,36 +861,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFallbackImage() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Image.network(
-          'https://cdn-icons-png.flaticon.com/512/1152/1152264.png', // Generic shoes icon
-          height: 120,
-          width: 120,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            // If even network image fails, show a basic icon
-            return Icon(
-              Icons.image_not_supported_outlined,
-              size: 80,
-              color: Colors.grey[400],
-            );
-          },
-        ),
-        SizedBox(height: 10),
-        Text(
-          "Image unavailable",
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 16,
-          ),
-        ),
-      ],
     );
   }
 }

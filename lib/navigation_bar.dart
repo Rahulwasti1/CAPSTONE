@@ -3,10 +3,13 @@ import 'package:capstone/screens/cart/cart.dart';
 import 'package:capstone/screens/categories/categories.dart';
 import 'package:capstone/screens/home/userhome.dart';
 import 'package:capstone/screens/Profile/profile.dart';
-import 'package:capstone/screens/TryOn/tryOn.dart';
+import 'package:capstone/screens/TryOn/try_on.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:developer' as developer;
 
 class UserNavigation extends StatefulWidget {
   const UserNavigation({super.key});
@@ -24,6 +27,61 @@ class _UserNavigationState extends State<UserNavigation> {
     UserProfile(),
   ];
   int currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load user data when navigation bar is created
+    _loadUserProfileData();
+  }
+
+  // Load user profile data to ensure it's available throughout the app
+  Future<void> _loadUserProfileData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Try both collections
+      DocumentSnapshot? userDoc;
+
+      // Try users collection first
+      userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      // If not found, try userData collection
+      if (!userDoc.exists) {
+        userDoc = await FirebaseFirestore.instance
+            .collection('userData')
+            .doc(user.uid)
+            .get();
+      }
+
+      if (userDoc.exists) {
+        Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+
+        // Cache user data in UserProfile static variables
+        String username = userData['username'] ??
+            userData['name'] ??
+            user.displayName ??
+            user.email?.split('@')[0] ??
+            "Account";
+
+        UserProfile.cachedUsername = username;
+        UserProfile.cachedPhotoUrl = userData['photoUrl'];
+        UserProfile.cachedPhotoBase64 = userData['photoBase64'];
+      } else if (user.displayName != null && user.displayName!.isNotEmpty) {
+        // If no document exists but display name is available
+        UserProfile.cachedUsername = user.displayName;
+      } else if (user.email != null) {
+        // Use email as fallback
+        UserProfile.cachedUsername = user.email!.split('@')[0];
+      }
+    } catch (e) {
+      developer.log('Error loading user profile data: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
