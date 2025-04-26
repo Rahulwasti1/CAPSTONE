@@ -387,10 +387,9 @@ class _DetailScreenState extends State<DetailScreen>
                 label: Text(
                   'Try On',
                   style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.bold,
-                    color: CustomColors.secondaryColor
-                  ),
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.bold,
+                      color: CustomColors.secondaryColor),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,

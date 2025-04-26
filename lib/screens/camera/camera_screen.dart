@@ -1,25 +1,19 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'dart:developer' as developer;
-import 'package:capstone/service/virtual_try_on_service.dart';
-import 'package:path_provider/path_provider.dart';
 
 class CameraScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
   final String title;
   final String category;
-  final String productImageBase64; // Base64 of the product image
 
   const CameraScreen({
     super.key,
     required this.cameras,
     required this.title,
     required this.category,
-    required this.productImageBase64,
   });
 
   @override
@@ -33,10 +27,7 @@ class _CameraScreenState extends State<CameraScreen>
   bool _isTakingPicture = false;
   bool _isUsingFrontCamera = false;
   bool _isInitializing = true;
-  bool _isProcessing = false;
   String? _errorMessage;
-  String? _processedImageBase64;
-  final VirtualTryOnService _apiService = VirtualTryOnService();
 
   @override
   void initState() {
@@ -194,8 +185,15 @@ class _CameraScreenState extends State<CameraScreen>
     try {
       final image = await _controller!.takePicture();
 
-      // Process the image with the virtual try-on service
-      await _processWithVirtualTryOn(image.path);
+      // Save image to gallery
+      await ImageGallerySaver.saveFile(image.path);
+
+      if (!mounted) return;
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image saved to gallery')),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -206,108 +204,6 @@ class _CameraScreenState extends State<CameraScreen>
         setState(() {
           _isTakingPicture = false;
         });
-      }
-    }
-  }
-
-  Future<void> _processWithVirtualTryOn(String imagePath) async {
-    setState(() {
-      _isProcessing = true;
-      _processedImageBase64 = null;
-      _errorMessage = null;
-    });
-
-    try {
-      // Read the image file
-      final File file = File(imagePath);
-      final List<int> imageBytes = await file.readAsBytes();
-
-      // Convert to base64
-      final String faceImageBase64 = base64Encode(imageBytes);
-
-      // Use the product image base64 passed from the product detail screen
-      final String glassesImageBase64 = widget.productImageBase64;
-
-      // Check if the product is in sunglasses category
-      if (widget.category.toLowerCase() != 'sunglasses' &&
-          widget.category.toLowerCase() != 'eyewear') {
-        throw Exception(
-            'Virtual try-on is only available for sunglasses category');
-      }
-
-      // Step 1: Set the sunglasses image first
-      final bool glassesSet =
-          await _apiService.setSunglasses(glassesImageBase64);
-
-      if (!glassesSet) {
-        throw Exception('Failed to set sunglasses image');
-      }
-
-      developer.log('Sunglasses set successfully, now applying to face');
-
-      // Step 2: Apply the sunglasses to the face image
-      final String? resultImageBase64 =
-          await _apiService.applySunglasses(faceImageBase64);
-
-      if (resultImageBase64 != null) {
-        // Save the processed image
-        await _saveProcessedImage(resultImageBase64);
-
-        // Update the UI
-        if (mounted) {
-          setState(() {
-            _processedImageBase64 = resultImageBase64;
-            _isProcessing = false;
-          });
-        }
-      } else {
-        throw Exception('Failed to process the image');
-      }
-    } catch (e) {
-      developer.log('Error in virtual try-on: $e');
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _errorMessage = 'Failed to process try-on: $e';
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Virtual try-on failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _saveProcessedImage(String base64Image) async {
-    try {
-      // Decode base64 to bytes
-      final List<int> imageBytes = base64Decode(base64Image);
-
-      // Get temporary directory
-      final tempDir = await getTemporaryDirectory();
-
-      // Create a temporary file
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final File tempFile =
-          File('${tempDir.path}/virtual_tryon_$timestamp.jpg');
-
-      // Write to the file
-      await tempFile.writeAsBytes(imageBytes);
-
-      // Save to gallery
-      await ImageGallerySaver.saveFile(tempFile.path);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Try-on image saved to gallery')),
-        );
-      }
-    } catch (e) {
-      developer.log('Error saving processed image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save image: $e')),
-        );
       }
     }
   }
@@ -337,88 +233,6 @@ class _CameraScreenState extends State<CameraScreen>
           child: Text(
             _errorMessage!,
             style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
-        ),
-      );
-    }
-
-    // Show processed image if available
-    if (_processedImageBase64 != null) {
-      return Stack(
-        children: [
-          // Display the processed image
-          SizedBox(
-            width: double.infinity,
-            height: double.infinity,
-            child: Image.memory(
-              base64Decode(_processedImageBase64!),
-              fit: BoxFit.contain,
-            ),
-          ),
-
-          // Bottom controls for the processed image
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              color: Colors.black54,
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // Back to camera button
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _processedImageBase64 = null;
-                      });
-                    },
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('New Try-On'),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.black45,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                    ),
-                  ),
-
-                  // Done button (return to product)
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.check),
-                    label: const Text('Done'),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Show loading indicator while processing
-    if (_isProcessing) {
-      return Container(
-        color: Colors.black,
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 20),
-              Text(
-                'Processing virtual try-on...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
           ),
         ),
       );

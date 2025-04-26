@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
+import 'package:capstone/screens/ar/ar_sunglasses_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -178,32 +179,39 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       return;
     }
 
-    // Check if we have a product image to use for the try-on
-    if (_imageUrls.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('No product image available for virtual try-on')),
-      );
-      return;
-    }
+    // Get the product category
+    String category = widget.product['category'] as String? ?? 'Other';
 
-    // Use the first image for the try-on
-    final String productImageBase64 = _imageUrls.first;
-
-    // Navigate to camera screen directly
+    // Navigate to AR Sunglasses Screen for Sunglasses category, otherwise to regular camera
     if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CameraScreen(
-          cameras: cameras,
-          title: widget.product['title'] ?? 'Product',
-          category: widget.product['category'] ?? 'Other',
-          productImageBase64: productImageBase64,
+
+    if (category.toLowerCase() == 'sunglasses') {
+      // For sunglasses, use the AR sunglasses screen
+      String productImage = _imageUrls.isNotEmpty ? _imageUrls.first : '';
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ARSunglassesScreen(
+            cameras: cameras,
+            productImage: productImage,
+            productTitle: widget.product['title'] as String? ?? 'Sunglasses',
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // For other products, use the regular camera screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CameraScreen(
+            cameras: cameras,
+            title: widget.product['title'] ?? 'Product',
+            category: category,
+          ),
+        ),
+      );
+    }
   }
 
   // Fallback image widget
@@ -224,15 +232,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         ),
       ),
     );
-  }
-
-  // Check if the product is in the sunglasses category
-  bool _isSunglassesCategory() {
-    final String category =
-        widget.product['category']?.toString().toLowerCase() ?? '';
-    return category == 'sunglasses' ||
-        category == 'eyewear' ||
-        category.contains('glass');
   }
 
   @override
@@ -709,43 +708,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               padding: EdgeInsets.all(16),
               child: Row(
                 children: [
-                  // Try On button - only enable for sunglasses category
+                  // Try On button
                   Container(
                     width: 110,
                     margin: EdgeInsets.only(right: 10),
                     decoration: BoxDecoration(
-                      border: Border.all(
-                          color: _isSunglassesCategory()
-                              ? CustomColors.secondaryColor
-                              : Colors.grey),
+                      border: Border.all(color: CustomColors.secondaryColor),
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: TextButton.icon(
                       icon: Icon(Icons.camera_alt,
-                          color: _isSunglassesCategory()
-                              ? CustomColors.secondaryColor
-                              : Colors.grey),
+                          color: CustomColors.secondaryColor),
                       label: Text(
                         "Try On",
                         style: TextStyle(
-                          color: _isSunglassesCategory()
-                              ? CustomColors.secondaryColor
-                              : Colors.grey,
+                          color: CustomColors.secondaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
-                      onPressed: _isSunglassesCategory()
-                          ? _startTryOn
-                          : () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Virtual try-on is only available for sunglasses'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
+                      onPressed: _startTryOn,
                     ),
                   ),
 
