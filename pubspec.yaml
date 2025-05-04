@@ -91,6 +91,10 @@ flutter:
     - assets/images/category_image/
     - assets/models/sunglasses/
     - assets/effects/glasses/
+    - assets/effects/ornaments/
+    - assets/effects/ornament/
+    - assets/effects/apparel/
+    - assets/effects/debug/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

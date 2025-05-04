@@ -1,0 +1,24 @@
+{
+  "ornaments": {
+    "cross": "assets/effects/ornament/Cross-black.png",
+    "premium cross": "assets/effects/ornament/Cross-black.png",
+    "cross black": "assets/effects/ornament/Cross-black.png",
+    "chain": "assets/effects/ornament/BKEChain.png",
+    "necklace": "assets/effects/ornament/BKEChain.png",
+    "bke chain": "assets/effects/ornament/BKEChain.png",
+    "pendant": "assets/effects/ornament/Cross-black.png",
+    "black cross": "assets/effects/ornament/Cross-black.png",
+    "black chain": "assets/effects/ornament/BKEChain.png",
+    "silver cross": "assets/effects/ornament/Cross-black.png",
+    "silver chain": "assets/effects/ornament/BKEChain.png",
+    "gold cross": "assets/effects/ornament/Cross-black.png",
+    "gold chain": "assets/effects/ornament/BKEChain.png",
+    "diesel mega chief": "assets/effects/watches/Diesel Mega Chief.png",
+    "guess letterm": "assets/effects/watches/Guess Letterm.png",
+    "diesel watch": "assets/effects/watches/Diesel Mega Chief.png",
+    "guess watch": "assets/effects/watches/Guess Letterm.png"
+  },
+  "tshirts": {
+    "default": "assets/effects/apparel/tshirt_default.png"
+  }
+} 

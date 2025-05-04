@@ -1,4 +1,5 @@
 import 'dart:convert'; // For Base64 decoding
+import 'dart:typed_data'; // For Uint8List
 import 'package:flutter/material.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -112,7 +113,6 @@ class ProductCard extends StatelessWidget {
       if (product['imageURLs'] is List) {
         allImages.addAll(List<String>.from(product['imageURLs']));
       } else if (product['imageURLs'] is String) {
-        // Handle string - could be a single image or delimited
         String imgStr = product['imageURLs'] as String;
         if (imgStr.contains(';')) {
           allImages.addAll(imgStr.split(';').where((i) => i.isNotEmpty));
@@ -160,6 +160,36 @@ class ProductCard extends StatelessWidget {
       allImages.add(product['base64Image'].toString());
     }
 
+    // Case 4: Check 'downloadURL' field (common in Firebase Storage use cases)
+    if (product['downloadURL'] != null) {
+      if (product['downloadURL'] is List) {
+        allImages.addAll(List<String>.from(product['downloadURL']));
+      } else if (product['downloadURL'] is String &&
+          product['downloadURL'].toString().isNotEmpty) {
+        allImages.add(product['downloadURL'].toString());
+      }
+    }
+
+    // Case 5: Check 'downloadUrl' field (alternate spelling)
+    if (product['downloadUrl'] != null) {
+      if (product['downloadUrl'] is List) {
+        allImages.addAll(List<String>.from(product['downloadUrl']));
+      } else if (product['downloadUrl'] is String &&
+          product['downloadUrl'].toString().isNotEmpty) {
+        allImages.add(product['downloadUrl'].toString());
+      }
+    }
+
+    // Case 6: Check 'imageURL' field (singular)
+    if (product['imageURL'] != null) {
+      if (product['imageURL'] is List) {
+        allImages.addAll(List<String>.from(product['imageURL']));
+      } else if (product['imageURL'] is String &&
+          product['imageURL'].toString().isNotEmpty) {
+        allImages.add(product['imageURL'].toString());
+      }
+    }
+
     // Remove any duplicates and empty strings
     return allImages.where((img) => img.trim().isNotEmpty).toSet().toList();
   }
@@ -179,19 +209,60 @@ class ProductCard extends StatelessWidget {
       return _buildFallbackImage();
     }
 
-    try {
-      return Image.memory(
-        base64Decode(images[index]),
+    String imageUrl = images[index];
+
+    // First check if it's a URL (starts with http/https)
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return Image.network(
+        imageUrl,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
-          developer.log('Error loading image: $error');
-          // Try the next image if this one fails
+          developer.log('Error loading network image: $error');
+          return _tryDisplayImage(images, index + 1);
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              color: Colors.grey[400],
+              strokeWidth: 2.0,
+            ),
+          );
+        },
+      );
+    }
+
+    // Try to decode as base64
+    try {
+      // Check if it's a valid base64 string
+      // Some base64 strings might have data:image prefix, remove that first
+      if (imageUrl.contains('base64,')) {
+        imageUrl = imageUrl.split('base64,')[1];
+      }
+
+      // Validate the base64 string and pad if needed
+      String sanitized = imageUrl.trim();
+      int padLength = 4 - sanitized.length % 4;
+      if (padLength < 4) {
+        sanitized = sanitized + ('=' * padLength);
+      }
+
+      // Now try to decode it
+      Uint8List decodedBytes = base64Decode(sanitized);
+      return Image.memory(
+        decodedBytes,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          developer.log('Error displaying base64 image: $error');
           return _tryDisplayImage(images, index + 1);
         },
       );
     } catch (e) {
-      developer.log('Error decoding image: $e');
-      // Try the next image if this one fails
+      developer.log('Error decoding base64 image: $e');
       return _tryDisplayImage(images, index + 1);
     }
   }
@@ -380,6 +451,8 @@ class FlashSaleProductCard extends StatelessWidget {
 
   List<String> _extractAllImages() {
     List<String> allImages = [];
+
+    // Case 1: Check 'imageURLs' field (most common)
     if (product['imageURLs'] != null) {
       if (product['imageURLs'] is List) {
         allImages.addAll(List<String>.from(product['imageURLs']));
@@ -396,10 +469,71 @@ class FlashSaleProductCard extends StatelessWidget {
         }
       }
     }
+
+    // Case 2: Check 'images' field
+    if (product['images'] != null) {
+      if (product['images'] is List) {
+        allImages.addAll(List<String>.from(product['images']));
+      } else if (product['images'] is String) {
+        String imgStr = product['images'] as String;
+        // Try as delimited string
+        if (imgStr.contains(';')) {
+          allImages.addAll(imgStr.split(';').where((i) => i.isNotEmpty));
+        } else if (imgStr.contains(',')) {
+          allImages.addAll(imgStr.split(',').where((i) => i.isNotEmpty));
+        } else if (imgStr.contains('|')) {
+          allImages.addAll(imgStr.split('|').where((i) => i.isNotEmpty));
+        } else if (imgStr.isNotEmpty) {
+          allImages.add(imgStr);
+        }
+      }
+    }
+
+    // Case 3: Check individual fields
+    if (product['imageUrl'] != null &&
+        product['imageUrl'].toString().isNotEmpty) {
+      allImages.add(product['imageUrl'].toString());
+    }
+
+    if (product['image'] != null && product['image'].toString().isNotEmpty) {
+      allImages.add(product['image'].toString());
+    }
+
     if (product['base64Image'] != null &&
         product['base64Image'].toString().isNotEmpty) {
       allImages.add(product['base64Image'].toString());
     }
+
+    // Case 4: Check 'downloadURL' field (common in Firebase Storage use cases)
+    if (product['downloadURL'] != null) {
+      if (product['downloadURL'] is List) {
+        allImages.addAll(List<String>.from(product['downloadURL']));
+      } else if (product['downloadURL'] is String &&
+          product['downloadURL'].toString().isNotEmpty) {
+        allImages.add(product['downloadURL'].toString());
+      }
+    }
+
+    // Case 5: Check 'downloadUrl' field (alternate spelling)
+    if (product['downloadUrl'] != null) {
+      if (product['downloadUrl'] is List) {
+        allImages.addAll(List<String>.from(product['downloadUrl']));
+      } else if (product['downloadUrl'] is String &&
+          product['downloadUrl'].toString().isNotEmpty) {
+        allImages.add(product['downloadUrl'].toString());
+      }
+    }
+
+    // Case 6: Check 'imageURL' field (singular)
+    if (product['imageURL'] != null) {
+      if (product['imageURL'] is List) {
+        allImages.addAll(List<String>.from(product['imageURL']));
+      } else if (product['imageURL'] is String &&
+          product['imageURL'].toString().isNotEmpty) {
+        allImages.add(product['imageURL'].toString());
+      }
+    }
+
     return allImages.where((img) => img.trim().isNotEmpty).toSet().toList();
   }
 
@@ -414,15 +548,61 @@ class FlashSaleProductCard extends StatelessWidget {
     if (index >= images.length) {
       return _buildFallbackImage();
     }
-    try {
-      return Image.memory(
-        base64Decode(images[index]),
+
+    String imageUrl = images[index];
+
+    // First check if it's a URL (starts with http/https)
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return Image.network(
+        imageUrl,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
+          developer.log('Error loading network image: $error');
+          return _tryDisplayImage(images, index + 1);
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              color: Colors.grey[400],
+              strokeWidth: 2.0,
+            ),
+          );
+        },
+      );
+    }
+
+    // Try to decode as base64
+    try {
+      // Check if it's a valid base64 string
+      // Some base64 strings might have data:image prefix, remove that first
+      if (imageUrl.contains('base64,')) {
+        imageUrl = imageUrl.split('base64,')[1];
+      }
+
+      // Validate the base64 string and pad if needed
+      String sanitized = imageUrl.trim();
+      int padLength = 4 - sanitized.length % 4;
+      if (padLength < 4) {
+        sanitized = sanitized + ('=' * padLength);
+      }
+
+      // Now try to decode it
+      Uint8List decodedBytes = base64Decode(sanitized);
+      return Image.memory(
+        decodedBytes,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          developer.log('Error displaying base64 image: $error');
           return _tryDisplayImage(images, index + 1);
         },
       );
     } catch (e) {
+      developer.log('Error decoding base64 image: $e');
       return _tryDisplayImage(images, index + 1);
     }
   }

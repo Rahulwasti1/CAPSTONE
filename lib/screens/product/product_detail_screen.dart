@@ -9,6 +9,9 @@ import 'dart:developer' as developer;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
 import 'package:capstone/screens/ar/ar_sunglasses_screen.dart';
+import 'package:capstone/screens/ar/ar_ornaments_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:capstone/screens/ar/ar_tshirt_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -31,10 +34,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   late TabController _tabController;
   String? selectedColor;
   List<String> _imageUrls = [];
+  Map<String, dynamic> _currentProductData = {};
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
+
+    // Set initial product data
+    _currentProductData = Map<String, dynamic>.from(widget.product);
 
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
@@ -45,24 +53,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
     // Process product images in initState
     _processProductImages();
+
+    // Refresh product data from Firestore
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshProductData();
+    });
   }
 
   void _processProductImages() {
     // For debugging - print the product data to see all fields
-    developer.log("Processing product images: ${widget.product['title']}");
+    developer.log("Processing product images: ${_currentProductData['title']}");
 
     // Improved image handling - handle multiple scenarios
     List<String> imageURLs = [];
 
-    // Case 1: 'imageURLs' field (list of base64 strings)
-    if (widget.product['imageURLs'] != null) {
-      if (widget.product['imageURLs'] is List) {
+    // Extract all possible image sources with detailed logging
+    // Case 1: 'imageURLs' field (list of strings - could be base64 or URLs)
+    if (_currentProductData['imageURLs'] != null) {
+      if (_currentProductData['imageURLs'] is List) {
         // When it's already a list
-        imageURLs = List<String>.from(widget.product['imageURLs']);
+        imageURLs = List<String>.from(_currentProductData['imageURLs']);
         developer.log("Found imageURLs as List: ${imageURLs.length} images");
-      } else if (widget.product['imageURLs'] is String) {
-        // When it's a string with multiple base64 images
-        String imagesStr = widget.product['imageURLs'] as String;
+      } else if (_currentProductData['imageURLs'] is String) {
+        // When it's a string with multiple images
+        String imagesStr = _currentProductData['imageURLs'] as String;
 
         // Try common delimiters
         if (imagesStr.contains(';')) {
@@ -88,23 +102,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             "Found imageURLs as String, parsed: ${imageURLs.length} images");
       }
     }
+
     // Case 2: Check 'images' field
-    else if (widget.product['images'] != null) {
-      if (widget.product['images'] is List) {
-        imageURLs = List<String>.from(widget.product['images']);
+    if (imageURLs.isEmpty && _currentProductData['images'] != null) {
+      if (_currentProductData['images'] is List) {
+        imageURLs = List<String>.from(_currentProductData['images']);
         developer.log("Found images as List: ${imageURLs.length} images");
-      } else if (widget.product['images'] is String) {
+      } else if (_currentProductData['images'] is String) {
         try {
           // Try to parse as JSON array if it's a stringified array
-          final decoded = jsonDecode(widget.product['images'] as String);
+          final decoded = jsonDecode(_currentProductData['images'] as String);
           if (decoded is List) {
             imageURLs = List<String>.from(decoded);
           } else {
-            imageURLs = [widget.product['images'] as String];
+            imageURLs = [_currentProductData['images'] as String];
           }
         } catch (e) {
           // If not JSON, treat as single image or try delimiters
-          String imagesStr = widget.product['images'] as String;
+          String imagesStr = _currentProductData['images'] as String;
           if (imagesStr.contains(';')) {
             imageURLs = imagesStr
                 .split(';')
@@ -128,17 +143,60 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             .log("Found images as String, parsed: ${imageURLs.length} images");
       }
     }
-    // Case 3: Check 'imageUrl' field (single image)
-    else if (widget.product['imageUrl'] != null &&
-        widget.product['imageUrl'].toString().isNotEmpty) {
-      imageURLs = [widget.product['imageUrl'].toString()];
-      developer.log("Found single imageUrl");
-    }
-    // Case 4: Check 'image' field (single image)
-    else if (widget.product['image'] != null &&
-        widget.product['image'].toString().isNotEmpty) {
-      imageURLs = [widget.product['image'].toString()];
-      developer.log("Found single image");
+
+    // Case 3: Check individual fields if still no images found
+    if (imageURLs.isEmpty) {
+      // Check 'imageUrl' field (single image)
+      if (_currentProductData['imageUrl'] != null &&
+          _currentProductData['imageUrl'].toString().isNotEmpty) {
+        imageURLs = [_currentProductData['imageUrl'].toString()];
+        developer.log("Found single imageUrl");
+      }
+      // Check 'image' field (single image)
+      else if (_currentProductData['image'] != null &&
+          _currentProductData['image'].toString().isNotEmpty) {
+        imageURLs = [_currentProductData['image'].toString()];
+        developer.log("Found single image");
+      }
+      // Check 'downloadURL' field (common in Firebase Storage)
+      else if (_currentProductData['downloadURL'] != null) {
+        if (_currentProductData['downloadURL'] is List) {
+          imageURLs = List<String>.from(_currentProductData['downloadURL']);
+          developer.log("Found downloadURL as List");
+        } else if (_currentProductData['downloadURL'] is String &&
+            _currentProductData['downloadURL'].toString().isNotEmpty) {
+          imageURLs = [_currentProductData['downloadURL'].toString()];
+          developer.log("Found single downloadURL");
+        }
+      }
+      // Check 'downloadUrl' field (alternate spelling)
+      else if (_currentProductData['downloadUrl'] != null) {
+        if (_currentProductData['downloadUrl'] is List) {
+          imageURLs = List<String>.from(_currentProductData['downloadUrl']);
+          developer.log("Found downloadUrl as List");
+        } else if (_currentProductData['downloadUrl'] is String &&
+            _currentProductData['downloadUrl'].toString().isNotEmpty) {
+          imageURLs = [_currentProductData['downloadUrl'].toString()];
+          developer.log("Found single downloadUrl");
+        }
+      }
+      // Check 'imageURL' field (singular)
+      else if (_currentProductData['imageURL'] != null) {
+        if (_currentProductData['imageURL'] is List) {
+          imageURLs = List<String>.from(_currentProductData['imageURL']);
+          developer.log("Found imageURL as List");
+        } else if (_currentProductData['imageURL'] is String &&
+            _currentProductData['imageURL'].toString().isNotEmpty) {
+          imageURLs = [_currentProductData['imageURL'].toString()];
+          developer.log("Found single imageURL");
+        }
+      }
+      // Check 'base64Image' field
+      else if (_currentProductData['base64Image'] != null &&
+          _currentProductData['base64Image'].toString().isNotEmpty) {
+        imageURLs = [_currentProductData['base64Image'].toString()];
+        developer.log("Found base64Image");
+      }
     }
 
     // Filter out any empty strings or invalid entries
@@ -147,8 +205,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     if (imageURLs.isNotEmpty) {
       developer.log("Final image count: ${imageURLs.length}");
       if (imageURLs.isNotEmpty) {
-        developer.log(
-            "First image sample: ${imageURLs[0].substring(0, min(20, imageURLs[0].length))}...");
+        var firstImage = imageURLs[0];
+        // Don't log the full base64 string to avoid console spam
+        var preview = firstImage.startsWith('http')
+            ? firstImage
+            : "${firstImage.substring(0, min(20, firstImage.length))}...";
+        developer.log("First image sample: $preview");
       }
     } else {
       developer.log("No images found for this product");
@@ -180,22 +242,55 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     }
 
     // Get the product category
-    String category = widget.product['category'] as String? ?? 'Other';
+    String category = _currentProductData['category'] as String? ?? 'Other';
 
-    // Navigate to AR Sunglasses Screen for Sunglasses category, otherwise to regular camera
+    // Navigate to AR screen based on category
     if (!mounted) return;
+
+    String productImage = _imageUrls.isNotEmpty ? _imageUrls.first : '';
+    String productTitle = _currentProductData['title'] as String? ?? 'Product';
 
     if (category.toLowerCase() == 'sunglasses') {
       // For sunglasses, use the AR sunglasses screen
-      String productImage = _imageUrls.isNotEmpty ? _imageUrls.first : '';
-
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ARSunglassesScreen(
             cameras: cameras,
             productImage: productImage,
-            productTitle: widget.product['title'] as String? ?? 'Sunglasses',
+            productTitle: productTitle,
+          ),
+        ),
+      );
+    } else if (category.toLowerCase() == 'ornaments') {
+      // For ornaments, use the AR ornaments screen with product ID for specific image
+      String productId = _currentProductData['id'] as String? ?? '';
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AROrnamentScreen(
+            cameras: cameras,
+            productImage: productImage,
+            productTitle: productTitle,
+            productId: productId,
+          ),
+        ),
+      );
+    } else if (category.toLowerCase() == 'tshirt' ||
+        category.toLowerCase() == 't-shirt' ||
+        category.toLowerCase() == 'apparel') {
+      // For t-shirts and apparel, use the AR tshirt screen
+      String productId = _currentProductData['id'] as String? ?? '';
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ARTshirtScreen(
+            cameras: cameras,
+            productImage: productImage,
+            productTitle: productTitle,
+            productId: productId,
           ),
         ),
       );
@@ -206,7 +301,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         MaterialPageRoute(
           builder: (context) => CameraScreen(
             cameras: cameras,
-            title: widget.product['title'] ?? 'Product',
+            title: productTitle,
             category: category,
           ),
         ),
@@ -237,26 +332,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   @override
   Widget build(BuildContext context) {
     // Extract product details
-    String title = widget.product['title'] as String? ?? "Product Name";
-    String description =
-        widget.product['description'] as String? ?? "No description available.";
-    String price = widget.product['price'] != null
-        ? "Rs ${widget.product['price']}"
+    String title = _currentProductData['title'] as String? ?? "Product Name";
+    String description = _currentProductData['description'] as String? ??
+        "No description available.";
+    String price = _currentProductData['price'] != null
+        ? "Rs ${_currentProductData['price']}"
         : "Price not available";
 
     // Get colors from the product data
     List<String> availableColors = [];
-    if (widget.product['colors'] != null && widget.product['colors'] is List) {
-      availableColors = List<String>.from(widget.product['colors']);
+    if (_currentProductData['colors'] != null &&
+        _currentProductData['colors'] is List) {
+      availableColors = List<String>.from(_currentProductData['colors']);
     }
 
     // Get sizes from the product data
     List<String> availableSizes = [];
-    if (widget.product['sizes'] != null) {
-      if (widget.product['sizes'] is List) {
-        availableSizes = List<String>.from(widget.product['sizes']);
-      } else if (widget.product['sizes'] is String) {
-        availableSizes = (widget.product['sizes'] as String)
+    if (_currentProductData['sizes'] != null) {
+      if (_currentProductData['sizes'] is List) {
+        availableSizes = List<String>.from(_currentProductData['sizes']);
+      } else if (_currentProductData['sizes'] is String) {
+        availableSizes = (_currentProductData['sizes'] as String)
             .split(',')
             .map((size) => size.trim())
             .where((size) => size.isNotEmpty)
@@ -319,376 +415,455 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
             // Main content area
             Expanded(
-              child: SingleChildScrollView(
-                physics: BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Product image carousel
-                    Container(
-                      height: 300,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                      ),
-                      child: Stack(
-                        children: [
-                          // Image carousel
-                          PageView.builder(
-                            controller: _pageController,
-                            itemCount:
-                                _imageUrls.isEmpty ? 1 : _imageUrls.length,
-                            onPageChanged: (index) {
-                              setState(() {
-                                currentImageIndex = index;
-                              });
-                            },
-                            itemBuilder: (context, index) {
-                              return Padding(
-                                padding: EdgeInsets.all(20),
-                                child: _imageUrls.isNotEmpty
-                                    ? Builder(
-                                        builder: (context) {
-                                          try {
-                                            // Attempt to decode and display the image
-                                            return Image.memory(
-                                              base64Decode(_imageUrls[index]),
-                                              fit: BoxFit.contain,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                developer.log(
-                                                    "Image decode error: $error");
-                                                return _buildFallbackImage();
-                                              },
-                                            );
-                                          } catch (e) {
-                                            // Handle any base64 decoding exceptions
-                                            developer
-                                                .log("Image exception: $e");
-                                            return _buildFallbackImage();
-                                          }
-                                        },
-                                      )
-                                    : _buildFallbackImage(),
-                              );
-                            },
-                          ),
+              child: RefreshIndicator(
+                onRefresh: _refreshProductData,
+                color: CustomColors.secondaryColor,
+                child: SingleChildScrollView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Product image carousel
+                      Container(
+                        height: 300,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                        ),
+                        child: Stack(
+                          children: [
+                            // Image carousel
+                            PageView.builder(
+                              controller: _pageController,
+                              itemCount:
+                                  _imageUrls.isEmpty ? 1 : _imageUrls.length,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  currentImageIndex = index;
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding: EdgeInsets.all(20),
+                                  child: _imageUrls.isNotEmpty
+                                      ? Builder(
+                                          builder: (context) {
+                                            final String imageUrl =
+                                                _imageUrls[index];
 
-                          // Image navigation dots
-                          if (_imageUrls.length > 1)
-                            Positioned(
-                              bottom: 10,
-                              left: 0,
-                              right: 0,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(
-                                  _imageUrls.length,
-                                  (index) => Container(
-                                    width: currentImageIndex == index ? 16 : 8,
-                                    height: 8,
-                                    margin: EdgeInsets.symmetric(horizontal: 4),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      color: currentImageIndex == index
-                                          ? CustomColors.secondaryColor
-                                          : Colors.grey.shade300,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                                            // Check if it's a network URL
+                                            if (imageUrl
+                                                    .startsWith('http://') ||
+                                                imageUrl
+                                                    .startsWith('https://')) {
+                                              return Image.network(
+                                                imageUrl,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  developer.log(
+                                                      "Network image error: $error");
+                                                  return _buildFallbackImage();
+                                                },
+                                                loadingBuilder: (context, child,
+                                                    loadingProgress) {
+                                                  if (loadingProgress == null)
+                                                    return child;
+                                                  return Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      value: loadingProgress
+                                                                  .expectedTotalBytes !=
+                                                              null
+                                                          ? loadingProgress
+                                                                  .cumulativeBytesLoaded /
+                                                              loadingProgress
+                                                                  .expectedTotalBytes!
+                                                          : null,
+                                                    ),
+                                                  );
+                                                },
+                                              );
+                                            }
 
-                    // Product title and price
-                    Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                              height: 1.2,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            price,
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                                            // Try to handle base64 encoded image
+                                            try {
+                                              // Some base64 strings might have data:image prefix
+                                              String processedImageUrl =
+                                                  imageUrl;
+                                              if (imageUrl
+                                                  .contains('base64,')) {
+                                                processedImageUrl = imageUrl
+                                                    .split('base64,')[1];
+                                              }
 
-                    // Color section
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Color",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          availableColors.isEmpty
-                              ? Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors
-                                        .brown, // Default brown if no colors
-                                    shape: BoxShape.circle,
-                                  ),
-                                )
-                              : SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: availableColors.map((colorCode) {
-                                      // Try to parse color code, with fallback
-                                      Color color;
-                                      try {
-                                        color = Color(int.parse(
-                                            colorCode.replaceAll("#", "0xFF")));
-                                      } catch (e) {
-                                        // Default to a brown color if parse fails
-                                        color = Colors.brown;
-                                      }
+                                              // Validate the base64 string and pad if needed
+                                              String sanitized =
+                                                  processedImageUrl.trim();
+                                              int padLength =
+                                                  4 - sanitized.length % 4;
+                                              if (padLength < 4) {
+                                                sanitized = sanitized +
+                                                    ('=' * padLength);
+                                              }
 
-                                      return GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            selectedColor = colorCode;
-                                          });
-                                        },
-                                        child: Container(
-                                          width: 40,
-                                          height: 40,
-                                          margin: EdgeInsets.only(right: 15),
-                                          decoration: BoxDecoration(
-                                            color: color,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: colorCode == selectedColor
-                                                  ? Colors.black
-                                                  : Colors.transparent,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                        ],
-                      ),
-                    ),
-
-                    // Size section
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Size",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                                              // Now try to decode it
+                                              final decodedBytes =
+                                                  base64Decode(sanitized);
+                                              return Image.memory(
+                                                decodedBytes,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  developer.log(
+                                                      "Image decode error: $error");
+                                                  return _buildFallbackImage();
+                                                },
+                                              );
+                                            } catch (e) {
+                                              // Handle any base64 decoding exceptions
+                                              developer
+                                                  .log("Image exception: $e");
+                                              return _buildFallbackImage();
+                                            }
+                                          },
+                                        )
+                                      : _buildFallbackImage(),
+                                );
+                              },
                             ),
-                          ),
-                          SizedBox(height: 10),
-                          availableSizes.isEmpty
-                              ? Container(
-                                  // Show a single default size if no sizes available
-                                  width: 60,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black,
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      "9",
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.white,
+
+                            // Image navigation dots
+                            if (_imageUrls.length > 1)
+                              Positioned(
+                                bottom: 10,
+                                left: 0,
+                                right: 0,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: List.generate(
+                                    _imageUrls.length,
+                                    (index) => Container(
+                                      width:
+                                          currentImageIndex == index ? 16 : 8,
+                                      height: 8,
+                                      margin:
+                                          EdgeInsets.symmetric(horizontal: 4),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(4),
+                                        color: currentImageIndex == index
+                                            ? CustomColors.secondaryColor
+                                            : Colors.grey.shade300,
                                       ),
                                     ),
                                   ),
-                                )
-                              : SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: availableSizes.map((size) {
-                                      bool isSelected = selectedSize == size;
-                                      return GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            selectedSize = size;
-                                          });
-                                        },
-                                        child: Container(
-                                          width: 60,
-                                          height: 50,
-                                          margin: EdgeInsets.only(right: 10),
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? Colors.black
-                                                : Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(15),
-                                            border: Border.all(
-                                              color: isSelected
-                                                  ? Colors.black
-                                                  : Colors.grey.shade300,
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              size,
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w500,
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : Colors.black,
+                                ),
+                              ),
+
+                            // Loading indicator overlay
+                            if (_isRefreshing)
+                              Container(
+                                color: Colors.black.withOpacity(0.3),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      // Product title and price
+                      Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                                height: 1.2,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              price,
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Color section
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Color",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            SizedBox(height: 10),
+                            availableColors.isEmpty
+                                ? Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Colors
+                                          .brown, // Default brown if no colors
+                                      shape: BoxShape.circle,
+                                    ),
+                                  )
+                                : SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children:
+                                          availableColors.map((colorCode) {
+                                        // Try to parse color code, with fallback
+                                        Color color;
+                                        try {
+                                          color = Color(int.parse(colorCode
+                                              .replaceAll("#", "0xFF")));
+                                        } catch (e) {
+                                          // Default to a brown color if parse fails
+                                          color = Colors.brown;
+                                        }
+
+                                        return GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              selectedColor = colorCode;
+                                            });
+                                          },
+                                          child: Container(
+                                            width: 40,
+                                            height: 40,
+                                            margin: EdgeInsets.only(right: 15),
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color:
+                                                    colorCode == selectedColor
+                                                        ? Colors.black
+                                                        : Colors.transparent,
+                                                width: 2,
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                        ],
-                      ),
-                    ),
-
-                    // Tab section - matching the provided image
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      margin: EdgeInsets.symmetric(horizontal: 16),
-                      padding: EdgeInsets.all(4),
-                      child: Row(
-                        children: [
-                          // Description tab
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                _tabController.animateTo(0);
-                              },
-                              child: Container(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: _selectedTabIndex == 0
-                                      ? CustomColors.secondaryColor
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    "Description",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: _selectedTabIndex == 0
-                                          ? Colors.white
-                                          : Colors.black,
+                                        );
+                                      }).toList(),
                                     ),
                                   ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // Specifications tab
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                _tabController.animateTo(1);
-                              },
-                              child: Container(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: _selectedTabIndex == 1
-                                      ? CustomColors.secondaryColor
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    "Specifications",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: _selectedTabIndex == 1
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
 
-                    // Tab content
-                    Container(
-                      height: 200,
-                      padding: EdgeInsets.all(20),
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          // Description tab content with justified text
-                          SingleChildScrollView(
-                            child: Text(
-                              description,
+                      // Size section
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Size",
                               style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.black87,
-                                height: 1.5,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
                               ),
-                              textAlign: TextAlign.justify,
                             ),
-                          ),
-
-                          // Specifications tab content
-                          SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: _buildSpecRows(
-                                  availableSizes, availableColors),
-                            ),
-                          ),
-                        ],
+                            SizedBox(height: 10),
+                            availableSizes.isEmpty
+                                ? Container(
+                                    // Show a single default size if no sizes available
+                                    width: 60,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black,
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        "9",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: availableSizes.map((size) {
+                                        bool isSelected = selectedSize == size;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              selectedSize = size;
+                                            });
+                                          },
+                                          child: Container(
+                                            width: 60,
+                                            height: 50,
+                                            margin: EdgeInsets.only(right: 10),
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(15),
+                                              border: Border.all(
+                                                color: isSelected
+                                                    ? Colors.black
+                                                    : Colors.grey.shade300,
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                size,
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : Colors.black,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                          ],
+                        ),
                       ),
-                    ),
 
-                    SizedBox(height: 20),
-                  ],
+                      // Tab section - matching the provided image
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        margin: EdgeInsets.symmetric(horizontal: 16),
+                        padding: EdgeInsets.all(4),
+                        child: Row(
+                          children: [
+                            // Description tab
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  _tabController.animateTo(0);
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: _selectedTabIndex == 0
+                                        ? CustomColors.secondaryColor
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      "Description",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: _selectedTabIndex == 0
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Specifications tab
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  _tabController.animateTo(1);
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: _selectedTabIndex == 1
+                                        ? CustomColors.secondaryColor
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      "Specifications",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: _selectedTabIndex == 1
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Tab content
+                      Container(
+                        height: 200,
+                        padding: EdgeInsets.all(20),
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            // Description tab content with justified text
+                            SingleChildScrollView(
+                              child: Text(
+                                description,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.black87,
+                                  height: 1.5,
+                                ),
+                                textAlign: TextAlign.justify,
+                              ),
+                            ),
+
+                            // Specifications tab content
+                            SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: _buildSpecRows(
+                                    availableSizes, availableColors),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -754,9 +929,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                           final cartProvider =
                               Provider.of<CartProvider>(context, listen: false);
                           cartProvider.addItem(
-                            productId: widget.product['id'],
-                            title: widget.product['title'],
-                            price: widget.product['price'],
+                            productId: _currentProductData['id'],
+                            title: _currentProductData['title'],
+                            price: _currentProductData['price'],
                             imageUrl:
                                 _imageUrls.isNotEmpty ? _imageUrls.first : '',
                             color: selectedColor!,
@@ -794,16 +969,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     List<Widget> rows = [];
 
     // Use product category if available
-    String category = widget.product['category'] as String? ?? 'Product';
+    String category = _currentProductData['category'] as String? ?? 'Product';
 
-    rows.add(
-        _buildSpecRow('Brand', widget.product['brand'] as String? ?? 'Brand'));
+    rows.add(_buildSpecRow(
+        'Brand', _currentProductData['brand'] as String? ?? 'Brand'));
     rows.add(_buildSpecRow('Type', 'Premium Product'));
     rows.add(_buildSpecRow('Category', category));
 
     // Add more specs if available in the product data
-    if (widget.product['material'] != null) {
-      rows.add(_buildSpecRow('Material', widget.product['material']));
+    if (_currentProductData['material'] != null) {
+      rows.add(_buildSpecRow('Material', _currentProductData['material']));
     } else {
       rows.add(_buildSpecRow('Material', 'Premium Material'));
     }
@@ -844,5 +1019,61 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         ],
       ),
     );
+  }
+
+  // New method to refresh product data from Firestore
+  Future<void> _refreshProductData() async {
+    if (_isRefreshing) return;
+
+    setState(() {
+      _isRefreshing = true;
+    });
+
+    try {
+      // Get the product ID
+      final String productId = _currentProductData['id'] ?? '';
+
+      if (productId.isNotEmpty) {
+        developer.log("Refreshing product data for ID: $productId");
+
+        // Fetch latest data from Firestore
+        final DocumentSnapshot doc = await FirebaseFirestore.instance
+            .collection('admin_products')
+            .doc(productId)
+            .get();
+
+        if (doc.exists) {
+          final Map<String, dynamic> refreshedData = {
+            ...doc.data() as Map<String, dynamic>,
+            'id': doc.id
+          };
+
+          setState(() {
+            _currentProductData = refreshedData;
+            _isRefreshing = false;
+          });
+
+          // Re-process images with updated data
+          _processProductImages();
+
+          developer.log("Product data refreshed successfully");
+        } else {
+          developer.log("Product document no longer exists");
+          setState(() {
+            _isRefreshing = false;
+          });
+        }
+      } else {
+        developer.log("Cannot refresh - no product ID available");
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    } catch (e) {
+      developer.log("Error refreshing product data: $e");
+      setState(() {
+        _isRefreshing = false;
+      });
+    }
   }
 }
