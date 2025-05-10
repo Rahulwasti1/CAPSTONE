@@ -10,8 +10,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
 import 'package:capstone/screens/ar/ar_sunglasses_screen.dart';
 import 'package:capstone/screens/ar/ar_ornaments_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:capstone/screens/ar/ar_tshirt_screen.dart';
+import 'package:capstone/screens/ar/ar_watches_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -243,12 +244,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
     // Get the product category
     String category = _currentProductData['category'] as String? ?? 'Other';
+    String productTitle = _currentProductData['title'] as String? ?? 'Product';
+
+    // Determine if it's a watch based on title or ID for better detection
+    bool isWatch = category.toLowerCase() == 'watches' ||
+        category.toLowerCase() == 'watch' ||
+        productTitle.toLowerCase().contains('watch') ||
+        productTitle.toLowerCase().contains('diesel') ||
+        productTitle.toLowerCase().contains('guess');
 
     // Navigate to AR screen based on category
     if (!mounted) return;
 
     String productImage = _imageUrls.isNotEmpty ? _imageUrls.first : '';
-    String productTitle = _currentProductData['title'] as String? ?? 'Product';
+    String productId = _currentProductData['id'] as String? ?? '';
 
     if (category.toLowerCase() == 'sunglasses') {
       // For sunglasses, use the AR sunglasses screen
@@ -264,8 +273,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       );
     } else if (category.toLowerCase() == 'ornaments') {
       // For ornaments, use the AR ornaments screen with product ID for specific image
-      String productId = _currentProductData['id'] as String? ?? '';
-
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -281,12 +288,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         category.toLowerCase() == 't-shirt' ||
         category.toLowerCase() == 'apparel') {
       // For t-shirts and apparel, use the AR tshirt screen
-      String productId = _currentProductData['id'] as String? ?? '';
-
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ARTshirtScreen(
+            cameras: cameras,
+            productImage: productImage,
+            productTitle: productTitle,
+            productId: productId,
+          ),
+        ),
+      );
+    } else if (isWatch) {
+      // For watches, use the AR watches screen
+      developer
+          .log("Launching watch AR try-on for: $productTitle (ID: $productId)");
+      developer.log("Category detected: $category");
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ARWatchesScreen(
             cameras: cameras,
             productImage: productImage,
             productTitle: productTitle,
