@@ -120,7 +120,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
     }
 
     try {
-      // Find the requested camera
+      // Finding the requested camera
       CameraDescription selectedCamera;
 
       if (useFrontCamera) {
@@ -149,7 +149,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
 
       final controller = CameraController(
         selectedCamera,
-        ResolutionPreset.medium,
+        ResolutionPreset.veryHigh,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
             ? ImageFormatGroup.yuv420
@@ -166,12 +166,18 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         return;
       }
 
-      // Set camera parameters and start stream with proper error handling
+      // Setting camera parameters and start stream with proper error handling
       try {
         if (Platform.isAndroid) {
+          await controller.setZoomLevel(1.0);
+          await controller.setExposureMode(ExposureMode.auto);
+          await controller.setExposureOffset(0.0);
+          await controller.setFocusMode(FocusMode.auto);
           await controller.startImageStream(_processCameraImage);
         } else {
           await controller.setExposureMode(ExposureMode.auto);
+          await controller.setExposureOffset(0.0);
+          await controller.setFocusMode(FocusMode.auto);
           await controller.setFlashMode(FlashMode.off);
           await controller.startImageStream(_processCameraImage);
         }
@@ -274,6 +280,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
       final bytes = _concatenatePlanes(image.planes);
 
       // Updated to use the current API
+      // Converting the frames to ML Kit Format
       return InputImage.fromBytes(
         bytes: bytes,
         metadata: InputImageMetadata(

@@ -73,7 +73,7 @@ class AssetSunglassesPainter extends CustomPainter {
   }
 
   void _drawGlassesImage(Canvas canvas, Face face, ui.Image image) {
-    // Get eye landmarks
+    // Get eye landmarks and place sunglasses
     final leftEye = face.landmarks[FaceLandmarkType.leftEye];
     final rightEye = face.landmarks[FaceLandmarkType.rightEye];
     final nose = face.landmarks[FaceLandmarkType.noseBase];

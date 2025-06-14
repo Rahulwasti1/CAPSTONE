@@ -4,7 +4,6 @@ import 'package:capstone/admin/add_product/select_color.dart';
 import 'package:capstone/admin/admin_navbar.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/service/adding_product.dart';
-import 'package:capstone/widget/error_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';

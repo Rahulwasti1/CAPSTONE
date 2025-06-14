@@ -1,6 +1,7 @@
 import 'package:capstone/provider/favourite_provider.dart';
 import 'package:capstone/provider/cart_provider.dart';
 import 'package:capstone/widget/user_appbar.dart';
+import 'package:capstone/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,21 +12,26 @@ class UserFavorites extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            UserAppbar(text: 'Favorites'),
-            Expanded(child: _buildFavoritesContent(context)),
-          ],
-        ),
-      ),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Column(
+              children: [
+                UserAppbar(text: 'Favorites'),
+                Expanded(child: _buildFavoritesContent(context)),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildFavoritesContent(BuildContext context) {
     final favoriteProvider = Provider.of<FavoriteProvider>(context);
+    final theme = Theme.of(context);
     final List<String> favoriteProductIds =
         favoriteProvider.favoriteProductIds();
 
@@ -37,12 +43,21 @@ class UserFavorites extends StatelessWidget {
         future: _fetchFavoriteProducts(favoriteProductIds),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(
+                color: Colors.brown,
+              ),
+            );
           }
 
           if (snapshot.hasError) {
             return Center(
-              child: Text('Error loading your favorites'),
+              child: Text(
+                'Error loading your favorites',
+                style: TextStyle(
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
+              ),
             );
           }
 
@@ -125,22 +140,38 @@ class UserFavorites extends StatelessWidget {
   }
 
   Widget _buildEmptyFavorites(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.favorite_border,
-            size: 80.sp,
-            color: Colors.grey[400],
+          Container(
+            padding: EdgeInsets.all(24.r),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: theme.shadowColor.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.favorite_border,
+              size: 64.sp,
+              color: theme.iconTheme.color?.withOpacity(0.6),
+            ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 24.h),
           Text(
             'No favorites yet',
             style: TextStyle(
-              fontSize: 18.sp,
+              fontSize: 20.sp,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
+              color: theme.textTheme.headlineSmall?.color,
             ),
           ),
           SizedBox(height: 8.h),
@@ -148,29 +179,47 @@ class UserFavorites extends StatelessWidget {
             'Add products to your favorites to see them here',
             style: TextStyle(
               fontSize: 14.sp,
-              color: Colors.grey[600],
+              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 24.h),
-          ElevatedButton(
-            onPressed: () {
-              // Navigate back to products or categories
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber,
-              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.r),
+          SizedBox(height: 32.h),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.brown.shade600, Colors.brown.shade800],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.circular(12.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.brown.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: Text(
-              'Explore Products',
-              style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            child: ElevatedButton(
+              onPressed: () {
+                // Navigate back to products or categories
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+              ),
+              child: Text(
+                'Explore Products',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -181,6 +230,7 @@ class UserFavorites extends StatelessWidget {
 
   Widget _buildFavoriteItem(BuildContext context, Map<String, dynamic> product,
       FavoriteProvider favoriteProvider) {
+    final theme = Theme.of(context);
     final String productId = product['id'] as String;
     final String productTitle =
         product['title'] as String? ?? 'Unnamed Product';
@@ -192,11 +242,11 @@ class UserFavorites extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: theme.shadowColor.withOpacity(0.08),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -205,186 +255,261 @@ class UserFavorites extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Product image
-          Stack(
-            children: [
-              ClipRRect(
+          // Product Image
+          Expanded(
+            flex: 3,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: theme.brightness == Brightness.dark
+                    ? Colors.grey[800]
+                    : Colors.grey[100],
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12.r),
-                  topRight: Radius.circular(12.r),
+                  topLeft: Radius.circular(16.r),
+                  topRight: Radius.circular(16.r),
                 ),
-                child: Container(
-                  width: double.infinity,
-                  height: 120.h,
-                  color: Colors.grey[200],
-                  child: imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Center(
-                              child: Icon(
-                                Icons.image_not_supported_outlined,
-                                size: 30.sp,
-                                color: Colors.grey[400],
+              ),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16.r),
+                      topRight: Radius.circular(16.r),
+                    ),
+                    child: imageUrl.isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      theme.brightness == Brightness.dark
+                                          ? Colors.grey[700]!
+                                          : Colors.grey[200]!,
+                                      theme.brightness == Brightness.dark
+                                          ? Colors.grey[800]!
+                                          : Colors.grey[300]!,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.image_not_supported_outlined,
+                                    size: 32.sp,
+                                    color:
+                                        theme.iconTheme.color?.withOpacity(0.5),
+                                  ),
+                                ),
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      theme.brightness == Brightness.dark
+                                          ? Colors.grey[700]!
+                                          : Colors.grey[200]!,
+                                      theme.brightness == Brightness.dark
+                                          ? Colors.grey[800]!
+                                          : Colors.grey[300]!,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes !=
+                                            null
+                                        ? loadingProgress
+                                                .cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    color: Colors.brown,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  theme.brightness == Brightness.dark
+                                      ? Colors.grey[700]!
+                                      : Colors.grey[200]!,
+                                  theme.brightness == Brightness.dark
+                                      ? Colors.grey[800]!
+                                      : Colors.grey[300]!,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            );
-                          },
-                        )
-                      : Center(
-                          child: Icon(
-                            Icons.image_not_supported_outlined,
-                            size: 30.sp,
-                            color: Colors.grey[400],
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 32.sp,
+                                color: theme.iconTheme.color?.withOpacity(0.5),
+                              ),
+                            ),
                           ),
-                        ),
-                ),
-              ),
-              Positioned(
-                top: 8.h,
-                right: 8.w,
-                child: _buildCircleButton(
-                  icon: Icons.favorite,
-                  color: Colors.red,
-                  onPressed: () {
-                    favoriteProvider.removeFromFavorites(productId);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Removed from favorites'),
-                        duration: Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
+                  ),
+                  // Favorite button
+                  Positioned(
+                    top: 8.h,
+                    right: 8.w,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.favorite,
+                          color: Colors.red,
+                          size: 20.sp,
+                        ),
+                        onPressed: () {
+                          favoriteProvider.toggleFavorite(productId);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Removed from favorites',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              duration: Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor:
+                                  theme.brightness == Brightness.dark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[700],
+                            ),
+                          );
+                        },
+                        padding: EdgeInsets.all(4.r),
+                        constraints: BoxConstraints(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-          // Product details
-          Padding(
-            padding: EdgeInsets.all(12.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  productTitle,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
+          // Product Details
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: EdgeInsets.all(12.r),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        productTitle,
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                          color: theme.textTheme.titleMedium?.color,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        productPrice,
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.brown,
+                        ),
+                      ),
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  productPrice,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.amber[800],
+                  // Add to Cart button
+                  Container(
+                    width: double.infinity,
+                    height: 32.h,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.brown.shade600, Colors.brown.shade800],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final cartProvider =
+                            Provider.of<CartProvider>(context, listen: false);
+
+                        // Get colors and sizes
+                        final List<String> colors = product['colors'] ?? [];
+                        final List<String> sizes = product['sizes'] ?? [];
+
+                        cartProvider.addItem(
+                          productId: productId,
+                          title: productTitle,
+                          price: product['numericPrice']?.toDouble() ?? 0.0,
+                          imageUrl: imageUrl,
+                          color: colors.isNotEmpty ? colors.first : '',
+                          size: sizes.isNotEmpty ? sizes.first : '',
+                        );
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Added to cart',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            duration: Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                      ),
+                      child: Text(
+                        'Add to Cart',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                SizedBox(height: 12.h),
-                _buildAddToCartButton(context, product),
-              ],
+                ],
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCircleButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(20.r),
-      child: Container(
-        padding: EdgeInsets.all(8.r),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          size: 20.sp,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddToCartButton(
-      BuildContext context, Map<String, dynamic> product) {
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
-
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          // Get necessary information
-          final String productId = product['id'] as String;
-          final String productName =
-              product['title'] as String? ?? 'Unnamed Product';
-          final double productPrice = (product['numericPrice'] is int)
-              ? (product['numericPrice'] as int).toDouble()
-              : ((product['numericPrice'] is double)
-                  ? (product['numericPrice'] as double)
-                  : 0.0);
-          final List<String> imageURLs =
-              (product['imageURLs'] as List<String>?) ?? [];
-          final String imageUrl = imageURLs.isNotEmpty ? imageURLs.first : '';
-
-          // Add to cart
-          cartProvider.addItem(
-            productId: productId,
-            title: productName,
-            price: productPrice,
-            imageUrl: imageUrl,
-            color: '',
-            size: '',
-          );
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Added to cart'),
-              duration: Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              action: SnackBarAction(
-                label: 'VIEW CART',
-                onPressed: () {
-                  // Navigate to cart
-                  // You can implement this later
-                },
-              ),
-            ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.amber,
-          padding: EdgeInsets.symmetric(vertical: 8.h),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
-          ),
-        ),
-        child: Text(
-          'Add to Cart',
-          style: TextStyle(
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
       ),
     );
   }

@@ -1,6 +1,5 @@
 // If the cart does not contains product then add otherwise increase the quantity if same product consiste
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';

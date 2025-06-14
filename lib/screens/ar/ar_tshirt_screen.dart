@@ -539,7 +539,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
 
       final controller = CameraController(
         selectedCamera,
-        ResolutionPreset.medium,
+        ResolutionPreset.veryHigh,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
             ? ImageFormatGroup.yuv420
@@ -559,9 +559,15 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       // Set camera parameters and start stream with proper error handling
       try {
         if (Platform.isAndroid) {
+          await controller.setZoomLevel(1.0);
+          await controller.setExposureMode(ExposureMode.auto);
+          await controller.setExposureOffset(0.0);
+          await controller.setFocusMode(FocusMode.auto);
           await controller.startImageStream(_processCameraImage);
         } else {
           await controller.setExposureMode(ExposureMode.auto);
+          await controller.setExposureOffset(0.0);
+          await controller.setFocusMode(FocusMode.auto);
           await controller.setFlashMode(FlashMode.off);
           await controller.startImageStream(_processCameraImage);
         }

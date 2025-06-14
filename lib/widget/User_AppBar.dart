@@ -20,21 +20,23 @@ class UserAppbar extends StatelessWidget {
               },
               style: ElevatedButton.styleFrom(
                 elevation: 0.1,
-                backgroundColor: Colors.white,
+                backgroundColor: Theme.of(context).cardColor,
                 minimumSize: Size(10.h, 40.w),
                 shape: CircleBorder(
                     side: BorderSide(
-                        color: const Color.fromARGB(255, 241, 239, 239),
-                        width: 0.5)),
+                        color: Theme.of(context).dividerColor, width: 0.5)),
               ),
               child: Icon(Icons.arrow_back,
-                  size: 20.sp, color: const Color.fromARGB(255, 31, 31, 30))),
+                  size: 20.sp, color: Theme.of(context).iconTheme.color)),
           SizedBox(width: 70.w),
-          
-Text(
-  text,
-  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
-)
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).textTheme.titleLarge?.color,
+            ),
+          )
         ],
       ),
     );

@@ -170,15 +170,16 @@ class AssetOrnamentsPainter extends CustomPainter {
     final ornamentWidth = stableFaceWidth * widthScale;
     final ornamentHeight = ornamentWidth * heightScale;
 
-    // Calculate ornament position - below the chin
-    // verticalOffset determines how far down from the chin the ornament is placed
-    final neckOffset = stableFaceHeight * verticalOffset;
+    // Calculate ornament position - below the chin with enhanced vertical positioning
+    final neckOffset = stableFaceHeight *
+        (verticalOffset * 1.2); // Enhanced scaling for lower positions
     final centerX = stableChinPosition.dx;
     final centerY = stableChinPosition.dy + neckOffset;
 
     // Log exact positioning
     developer.log("Ornament position: ($centerX, $centerY)");
     developer.log("Ornament size: $ornamentWidth x $ornamentHeight");
+    developer.log("Vertical offset applied: $neckOffset");
 
     // Additional position verification
     if (ornamentWidth <= 0 || ornamentHeight <= 0) {
@@ -190,8 +191,10 @@ class AssetOrnamentsPainter extends CustomPainter {
     // based on face rotation (if available) or head pose angles
     double angle = 0.0;
     if (face.headEulerAngleZ != null) {
-      // Convert from degrees to radians
-      angle = face.headEulerAngleZ! * math.pi / 180;
+      // Convert from degrees to radians with reduced rotation for lower positions
+      angle = (face.headEulerAngleZ! * 0.8) *
+          math.pi /
+          180; // Reduced rotation effect
     }
 
     // Apply additional stabilization to the final ornament position
@@ -201,10 +204,19 @@ class AssetOrnamentsPainter extends CustomPainter {
     if (stabilizePosition &&
         _lastOrnamentPosition != null &&
         _lastOrnamentAngle != null) {
+      // Enhanced smoothing for lower positions
+      final double positionSmoothFactor = verticalOffset > 1.0
+          ? 0.85
+          : 0.8; // More smoothing for lower positions
+
       // Smooth the final position and angle for ultra stability
-      ornamentPosition = Offset(_lastOrnamentPosition!.dx * 0.8 + centerX * 0.2,
-          _lastOrnamentPosition!.dy * 0.8 + centerY * 0.2);
-      ornamentAngle = _lastOrnamentAngle! * 0.8 + angle * 0.2;
+      ornamentPosition = Offset(
+          _lastOrnamentPosition!.dx * positionSmoothFactor +
+              centerX * (1 - positionSmoothFactor),
+          _lastOrnamentPosition!.dy * positionSmoothFactor +
+              centerY * (1 - positionSmoothFactor));
+      ornamentAngle = _lastOrnamentAngle! * positionSmoothFactor +
+          angle * (1 - positionSmoothFactor);
     } else {
       ornamentPosition = Offset(centerX, centerY);
       ornamentAngle = angle;

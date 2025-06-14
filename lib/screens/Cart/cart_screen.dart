@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:capstone/provider/cart_provider.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/widget/user_appbar.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:developer' as developer;
 
 class CartScreen extends StatelessWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -11,7 +14,7 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -159,10 +162,70 @@ class CartItemWidget extends StatelessWidget {
       return _buildFallbackImage();
     }
 
-    return Image.network(
-      imageUrl,
-      fit: BoxFit.cover,
-    );
+    // Check if it's a network URL
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          developer.log("Network image error in cart: $error");
+          return _buildFallbackImage();
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+      );
+    }
+
+    // Check if it's a base64 image
+    try {
+      String processedImageUrl = imageUrl;
+      if (imageUrl.contains('base64,')) {
+        processedImageUrl = imageUrl.split('base64,')[1];
+      }
+
+      // Validate and pad base64 string if needed
+      String sanitized = processedImageUrl.trim();
+      int padLength = 4 - sanitized.length % 4;
+      if (padLength < 4) {
+        sanitized = sanitized + ('=' * padLength);
+      }
+
+      final Uint8List decodedBytes = base64Decode(sanitized);
+      return Image.memory(
+        decodedBytes,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          developer.log("Base64 image error in cart: $error");
+          return _buildFallbackImage();
+        },
+      );
+    } catch (e) {
+      developer.log("Image decode error in cart: $e");
+
+      // Try as asset image
+      try {
+        return Image.asset(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            developer.log("Asset image error in cart: $error");
+            return _buildFallbackImage();
+          },
+        );
+      } catch (assetError) {
+        developer.log("Asset image failed in cart: $assetError");
+        return _buildFallbackImage();
+      }
+    }
   }
 
   Widget _buildFallbackImage() {

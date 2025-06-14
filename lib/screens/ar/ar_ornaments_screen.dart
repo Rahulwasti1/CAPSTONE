@@ -49,7 +49,8 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
   // Size and position adjustment values
   double _widthScale = 2.0; // Default width scale
   double _heightScale = 1.2; // Default height scale - taller for necklaces
-  double _verticalOffset = 0.3; // How far down from chin to place the ornament
+  double _verticalOffset =
+      0.5; // Increased default vertical offset for lower position
   bool _showAdjustmentControls = false;
 
   @override
@@ -312,7 +313,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
 
       final controller = CameraController(
         selectedCamera,
-        ResolutionPreset.medium,
+        ResolutionPreset.veryHigh,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
             ? ImageFormatGroup.yuv420
@@ -332,9 +333,15 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
       // Set camera parameters and start stream with proper error handling
       try {
         if (Platform.isAndroid) {
+          await controller.setZoomLevel(1.0);
+          await controller.setExposureMode(ExposureMode.auto);
+          await controller.setExposureOffset(0.0);
+          await controller.setFocusMode(FocusMode.auto);
           await controller.startImageStream(_processCameraImage);
         } else {
           await controller.setExposureMode(ExposureMode.auto);
+          await controller.setExposureOffset(0.0);
+          await controller.setFocusMode(FocusMode.auto);
           await controller.setFlashMode(FlashMode.off);
           await controller.startImageStream(_processCameraImage);
         }
@@ -768,8 +775,9 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
                           child: Slider(
                             value: _verticalOffset,
                             min: 0.1,
-                            max: 1.0,
-                            divisions: 20,
+                            max: 1.5, // Increased maximum vertical offset
+                            divisions:
+                                28, // Increased divisions for finer control
                             activeColor: Colors.blue,
                             inactiveColor: Colors.grey,
                             label: _verticalOffset.toStringAsFixed(1),

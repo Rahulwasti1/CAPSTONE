@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'dart:io';
 import 'dart:developer' as developer;
 import 'dart:ui' as ui;
-import 'dart:async'; // For Completer
-import 'dart:convert'; // For base64Decode and json
+import 'dart:async';
+import 'dart:convert';
 import 'package:capstone/screens/ar/asset_watches_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 
@@ -16,6 +16,7 @@ class ARWatchesScreen extends StatefulWidget {
   final String productImage;
   final String productTitle;
   final String productId;
+  final Map<String, dynamic>? productData;
 
   const ARWatchesScreen({
     super.key,
@@ -23,6 +24,7 @@ class ARWatchesScreen extends StatefulWidget {
     required this.productImage,
     required this.productTitle,
     required this.productId,
+    this.productData,
   });
 
   @override
@@ -32,313 +34,259 @@ class ARWatchesScreen extends StatefulWidget {
 class _ARWatchesScreenState extends State<ARWatchesScreen>
     with WidgetsBindingObserver {
   CameraController? _cameraController;
-  FaceDetector? _faceDetector;
-  bool _isBusy = false;
-  List<Face> _faces = [];
-  bool _isUsingFrontCamera = true;
-  Size? _imageSize;
   bool _isInitializing = true;
+  bool _isUsingFrontCamera = true;
   String? _errorMessage;
   ui.Image? _watchImage;
   bool _isImageLoading = true;
   bool _isCapturing = false;
-  bool _isForceCaptureMode =
-      false; // Special mode for capturing without indicators
   final GlobalKey _globalKey = GlobalKey();
   bool _cameraActive = false;
 
-  // Size and position adjustment values
-  double _widthScale = 1.5; // Increased default width scale for watches
-  double _heightScale = 1.0; // Default height scale for watches
-  double _horizontalOffset =
-      0.9; // Increased horizontal offset for better wrist positioning
-  double _verticalOffset =
-      0.75; // Default vertical position (percentage of screen height)
-  bool _showAdjustmentControls = true; // Show adjustment controls by default
-  bool _useLeftWrist = false; // Option to switch between left and right wrist
-  bool _showTooltip = true; // Show initial usage tooltip
+  // Simple size controls like sunglasses - START BIG so users can reduce
+  double _widthScale = 1.5;
+  double _heightScale = 1.5;
+  bool _showSizeControls = false;
+
+  // Pose detection for wrist detection
+  PoseDetector? _poseDetector;
+  bool _isDetecting = false;
+  bool _wristDetected = false;
+  Offset? _wristPosition;
+  Size? _cameraImageSize;
+
+  // Smoothing and stability improvements
+  DateTime? _lastDetectionTime;
+  static const int _detectionIntervalMs =
+      150; // Slightly faster for better responsiveness
+  List<Offset> _recentWristPositions = []; // For position smoothing
+  static const int _maxRecentPositions = 3; // Reduced for faster response
+  static const double _minConfidence = 0.5; // Lowered for better detection
+  int _consecutiveDetections = 0; // Count consecutive detections
+  static const int _minConsecutiveDetections =
+      2; // Reduced for faster activation
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeFaceDetector();
+    _initializePoseDetector();
     _loadWatchImage();
-    _initializeCamera(true); // Start with front camera
-
-    // Always show controls by default to help with positioning
-    _showAdjustmentControls = true;
-
-    // Auto-hide tooltip after 5 seconds
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) {
-        setState(() {
-          _showTooltip = false;
-        });
-      }
-    });
-
-    // Show a message instructing users to position their wrist and adjust controls
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Position your wrist in camera and use sliders to adjust watch placement",
-              style: TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.black87,
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-    });
+    _initializeCamera(true);
   }
 
-  Future<void> _loadWatchImage() async {
-    try {
-      setState(() {
-        _isImageLoading = true;
-        _errorMessage = null; // Clear any previous errors
-      });
-
-      developer.log("============================================");
-      developer.log("🔍 LOADING WATCH IMAGE");
-      developer.log("Product Title: '${widget.productTitle}'");
-      developer.log("Product ID: '${widget.productId}'");
-      developer.log("============================================");
-
-      // Get product title and ID for matching
-      final String lowerTitle = widget.productTitle.toLowerCase();
-      final String lowerId = widget.productId.toLowerCase();
-
-      // Determine which watch image to use based on product information
-      String imagePath;
-
-      // PRECISE MATCHING: Use exact product information to select the correct watch model
-      if (lowerTitle.contains('diesel') ||
-          lowerTitle.contains('mega chief') ||
-          lowerId.contains('diesel') ||
-          lowerTitle.contains('chief')) {
-        // Load Diesel watch
-        imagePath = 'assets/effects/watches/Diesel Mega Chief.png';
-        developer.log(
-            "Selected Diesel Mega Chief watch based on product information");
-      } else if (lowerTitle.contains('guess') ||
-          lowerTitle.contains('letterm') ||
-          lowerId.contains('guess') ||
-          lowerTitle.contains('letter')) {
-        // Load Guess watch
-        imagePath = 'assets/effects/watches/Guess Letterm.png';
-        developer
-            .log("Selected Guess Letterm watch based on product information");
-      } else {
-        // Alternate watches based on product ID to ensure different watches appear
-        // If no specific match, use product ID hash to alternate between available watches
-        final int productHash = widget.productId.hashCode.abs();
-        final bool useFirstWatch =
-            productHash % 2 == 0; // Even hashes get first watch
-
-        if (useFirstWatch) {
-          imagePath = 'assets/effects/watches/Diesel Mega Chief.png';
-          developer
-              .log("Selected Diesel watch based on product ID hash (even)");
-        } else {
-          imagePath = 'assets/effects/watches/Guess Letterm.png';
-          developer.log("Selected Guess watch based on product ID hash (odd)");
-        }
-      }
-
-      developer.log("Loading watch image: $imagePath");
-
-      // Try to load the selected image with error handling
-      try {
-        final ByteData data = await rootBundle.load(imagePath);
-        if (data.lengthInBytes == 0) {
-          throw Exception("Image data is empty");
-        }
-
-        developer.log("Image data loaded, bytes: ${data.lengthInBytes}");
-        final Uint8List bytes = data.buffer.asUint8List();
-        final ui.Codec codec = await ui.instantiateImageCodec(bytes);
-        final ui.FrameInfo fi = await codec.getNextFrame();
-
-        if (!mounted) return;
-
-        if (fi.image.width == 0 || fi.image.height == 0) {
-          throw Exception("Image dimensions invalid");
-        }
-
-        developer.log(
-            "Image decoded successfully: ${fi.image.width}x${fi.image.height}");
-
-        setState(() {
-          _watchImage = fi.image;
-          _isImageLoading = false;
-        });
-
-        developer.log("Successfully loaded watch image: $imagePath");
-        return;
-      } catch (e) {
-        developer.log("!!! ERROR loading image: ${e.toString()}");
-
-        // Try alternative watch as fallback
-        try {
-          developer.log("Trying alternative watch image");
-          // Use the other watch model as fallback
-          final alternativePath = imagePath.contains("Diesel")
-              ? 'assets/effects/watches/Guess Letterm.png'
-              : 'assets/effects/watches/Diesel Mega Chief.png';
-
-          final ByteData alternativeData =
-              await rootBundle.load(alternativePath);
-          final Uint8List alternativeBytes =
-              alternativeData.buffer.asUint8List();
-          final ui.Codec alternativeCodec =
-              await ui.instantiateImageCodec(alternativeBytes);
-          final ui.FrameInfo alternativeFi =
-              await alternativeCodec.getNextFrame();
-
-          if (!mounted) return;
-
-          setState(() {
-            _watchImage = alternativeFi.image;
-            _isImageLoading = false;
-          });
-
-          developer.log("Successfully loaded alternative watch image");
-          return;
-        } catch (alternativeError) {
-          developer.log("Alternative image also failed: $alternativeError");
-          // Continue to placeholder as last resort
-        }
-      }
-
-      // List all assets for debugging
-      try {
-        final manifestContent = await DefaultAssetBundle.of(context)
-            .loadString('AssetManifest.json');
-        final Map<String, dynamic> manifestMap = json.decode(manifestContent);
-        final watchAssets = manifestMap.keys
-            .where((String key) => key.contains('watches/'))
-            .toList();
-        developer.log("Available watch assets:");
-        for (var asset in watchAssets) {
-          developer.log("  $asset");
-        }
-      } catch (e) {
-        developer.log("Error listing assets: $e");
-      }
-
-      // If we get here, create a placeholder image as last resort
-      await _createPlaceholderImage();
-
-      if (!mounted) return;
-      setState(() {
-        _isImageLoading = false;
-      });
-    } catch (e) {
-      developer.log("Failed to load watch image: $e");
-      if (!mounted) return;
-
-      // Try to create a placeholder as last resort
-      await _createPlaceholderImage();
-
-      if (!mounted) return;
-      setState(() {
-        _isImageLoading = false;
-        _errorMessage =
-            "Failed to load watch image. Try adjusting size and position.";
-      });
-      _showWatchImageAlert();
-    }
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _disposeCurrentCamera();
+    _poseDetector?.close();
+    super.dispose();
   }
 
-  // Show alert to user that image loading failed but they can try controls
-  void _showWatchImageAlert() {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "Watch image couldn't be loaded. Try the controls to adjust placement.",
-          style: TextStyle(color: Colors.white),
-        ),
-        backgroundColor: Colors.red[700],
-        duration: Duration(seconds: 5),
-        action: SnackBarAction(
-          label: 'OK',
-          textColor: Colors.white,
-          onPressed: () {},
-        ),
+  /// Initialize pose detector for wrist detection
+  void _initializePoseDetector() {
+    _poseDetector = PoseDetector(
+      options: PoseDetectorOptions(
+        model: PoseDetectionModel.accurate,
+        mode: PoseDetectionMode.stream,
       ),
     );
   }
 
-  void _initializeFaceDetector() {
-    final options = FaceDetectorOptions(
-      enableContours: true,
-      enableLandmarks: true,
-      enableTracking: true,
-      enableClassification: true,
-      minFaceSize: 0.1,
-      performanceMode: FaceDetectorMode.accurate,
-    );
-    _faceDetector = FaceDetector(options: options);
-  }
-
-  Future<void> _initializeCamera(bool useFrontCamera) async {
-    if (!mounted) return;
-
-    setState(() {
-      _isInitializing = true;
-      _errorMessage = null;
-    });
-
-    // Dispose of previous controller if it exists
-    await _disposeCurrentCamera();
-
-    if (widget.cameras.isEmpty) {
-      if (!mounted) return;
-
-      setState(() {
-        _isInitializing = false;
-        _errorMessage = "No cameras available";
-      });
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
 
-    try {
-      // Find the requested camera
-      CameraDescription selectedCamera;
+    if (state == AppLifecycleState.inactive) {
+      _cameraController?.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_cameraController != null) {
+        _initializeCamera(_isUsingFrontCamera);
+      }
+    }
+  }
 
-      if (useFrontCamera) {
-        // Look specifically for a front camera
-        try {
-          selectedCamera = widget.cameras.firstWhere(
-            (camera) => camera.lensDirection == CameraLensDirection.front,
-          );
-        } catch (e) {
-          // Fall back to the first camera if no front camera
-          developer.log("No front camera found, using first camera");
-          selectedCamera = widget.cameras.first;
-        }
-      } else {
-        // Look specifically for a back camera
-        try {
-          selectedCamera = widget.cameras.firstWhere(
-            (camera) => camera.lensDirection == CameraLensDirection.back,
-          );
-        } catch (e) {
-          // Fall back to the first camera if no back camera
-          developer.log("No back camera found, using first camera");
-          selectedCamera = widget.cameras.first;
+  /// Load watch image using dynamic loading system
+  Future<void> _loadWatchImage() async {
+    try {
+      setState(() {
+        _isImageLoading = true;
+        _errorMessage = null;
+      });
+
+      developer.log("🔥 LOADING WATCH IMAGE");
+      developer
+          .log("Product: '${widget.productTitle}' (ID: ${widget.productId})");
+
+      ui.Image? loadedImage;
+
+      // Try loading from Firebase images (base64)
+      if (widget.productData != null) {
+        loadedImage = await _tryLoadFromFirebaseImages();
+        if (loadedImage != null) {
+          setState(() {
+            _watchImage = loadedImage;
+            _isImageLoading = false;
+          });
+          developer.log("✅ Loaded watch from Firebase images");
+          return;
         }
       }
 
+      // Try loading from product assets
+      loadedImage = await _tryLoadFromProductAssets();
+      if (loadedImage != null) {
+        setState(() {
+          _watchImage = loadedImage;
+          _isImageLoading = false;
+        });
+        developer.log("✅ Loaded watch from product assets");
+        return;
+      }
+
+      // Try loading from generic assets
+      loadedImage = await _tryLoadFromGenericAssets();
+      if (loadedImage != null) {
+        setState(() {
+          _watchImage = loadedImage;
+          _isImageLoading = false;
+        });
+        developer.log("✅ Loaded generic watch asset");
+        return;
+      }
+
+      // Create placeholder
+      await _createPlaceholderImage();
+      setState(() {
+        _isImageLoading = false;
+      });
+    } catch (e) {
+      developer.log("❌ Watch image loading failed: $e");
+      await _createPlaceholderImage();
+      setState(() {
+        _isImageLoading = false;
+        _errorMessage = null;
+      });
+    }
+  }
+
+  Future<ui.Image?> _tryLoadFromFirebaseImages() async {
+    try {
+      if (widget.productData == null) return null;
+
+      List<String> imageURLs = [];
+      if (widget.productData!['imageURLs'] != null) {
+        imageURLs = List<String>.from(widget.productData!['imageURLs']);
+      }
+
+      if (imageURLs.isEmpty) return null;
+
+      final String base64Image = imageURLs.first;
+      final Uint8List bytes = base64Decode(base64Image);
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo fi = await codec.getNextFrame();
+
+      return fi.image;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<ui.Image?> _tryLoadFromProductAssets() async {
+    try {
+      final String productAssetPath =
+          'assets/products/${widget.productId}/watch.png';
+      final ByteData data = await rootBundle.load(productAssetPath);
+      final Uint8List bytes = data.buffer.asUint8List();
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo fi = await codec.getNextFrame();
+      return fi.image;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<ui.Image?> _tryLoadFromGenericAssets() async {
+    try {
+      final String lowerTitle = widget.productTitle.toLowerCase();
+      String imagePath;
+
+      if (lowerTitle.contains('diesel') || lowerTitle.contains('chief')) {
+        imagePath = 'assets/effects/watches/Diesel Mega Chief.png';
+      } else if (lowerTitle.contains('guess') ||
+          lowerTitle.contains('letter')) {
+        imagePath = 'assets/effects/watches/Guess Letterm.png';
+      } else {
+        imagePath = 'assets/effects/watches/watch.png'; // Default
+      }
+
+      final ByteData data = await rootBundle.load(imagePath);
+      final Uint8List bytes = data.buffer.asUint8List();
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo fi = await codec.getNextFrame();
+      return fi.image;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> _createPlaceholderImage() async {
+    try {
+      final pictureRecorder = ui.PictureRecorder();
+      final canvas = Canvas(pictureRecorder);
+      final size = const Size(200, 200);
+
+      // Draw watch shape
+      final paint = Paint()
+        ..color = Colors.grey
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8;
+
+      // Watch circle
+      canvas.drawCircle(Offset(size.width / 2, size.height / 2), 80, paint);
+
+      // Watch hands
+      canvas.drawLine(
+        Offset(size.width / 2, size.height / 2),
+        Offset(size.width / 2, size.height / 2 - 40),
+        paint,
+      );
+      canvas.drawLine(
+        Offset(size.width / 2, size.height / 2),
+        Offset(size.width / 2 + 30, size.height / 2),
+        paint,
+      );
+
+      final picture = pictureRecorder.endRecording();
+      final img =
+          await picture.toImage(size.width.toInt(), size.height.toInt());
+
+      if (mounted) {
+        setState(() {
+          _watchImage = img;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = "Failed to load watch image.";
+        });
+      }
+    }
+  }
+
+  Future<void> _initializeCamera(bool useFrontCamera) async {
+    await _disposeCurrentCamera();
+
+    try {
+      final camera =
+          useFrontCamera ? widget.cameras.first : widget.cameras.last;
       final controller = CameraController(
-        selectedCamera,
-        ResolutionPreset.medium,
+        camera,
+        ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
             ? ImageFormatGroup.yuv420
@@ -346,38 +294,26 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
       );
 
       _cameraController = controller;
-
-      // Initialize controller
       await controller.initialize();
 
-      if (!mounted) {
-        await controller.dispose();
-        return;
-      }
+      if (!mounted) return;
 
-      // Set camera parameters and start stream with proper error handling
-      try {
-        if (Platform.isAndroid) {
-          await controller.startImageStream(_processCameraImage);
-        } else {
-          await controller.setExposureMode(ExposureMode.auto);
-          await controller.setFlashMode(FlashMode.off);
-          await controller.startImageStream(_processCameraImage);
-        }
+      await controller.setFocusMode(FocusMode.auto);
+      await controller.setExposureMode(ExposureMode.auto);
+      await controller.setFlashMode(FlashMode.off);
 
-        _isUsingFrontCamera = useFrontCamera;
-        _cameraActive = true;
-      } catch (e) {
-        developer.log("Error configuring camera stream: $e");
-        // If we can't start the stream, we still want to show the camera preview
-        // so we don't set an error message here
-      }
+      _isUsingFrontCamera = useFrontCamera;
+      _cameraActive = true;
 
-      if (mounted) {
-        setState(() {
-          _isInitializing = false;
-        });
-      }
+      // Start image stream for pose detection
+      controller.startImageStream(_processCameraImage);
+
+      setState(() {
+        _isInitializing = false;
+      });
+
+      developer
+          .log("📷 Camera initialized: ${useFrontCamera ? 'FRONT' : 'BACK'}");
     } on CameraException catch (e) {
       developer.log("Camera exception: ${e.code}: ${e.description}");
       if (mounted) {
@@ -401,250 +337,291 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     if (_cameraController != null) {
       _cameraActive = false;
       try {
-        if (_cameraController!.value.isInitialized) {
-          if (_cameraController!.value.isStreamingImages) {
-            await _cameraController!.stopImageStream();
-          }
-          await _cameraController!.dispose();
+        // Stop image stream before disposing
+        if (_cameraController!.value.isStreamingImages) {
+          await _cameraController!.stopImageStream();
         }
-      } on CameraException catch (e) {
-        developer.log(
-            "Camera exception during disposal: ${e.code}: ${e.description}");
+        if (_cameraController!.value.isInitialized) {
+          await _cameraController!.dispose();
+          developer.log("📷 Camera controller disposed");
+        }
       } catch (e) {
-        developer.log("Error disposing camera: $e");
+        developer.log("❌ Error disposing camera: $e");
       }
       _cameraController = null;
     }
   }
 
+  /// Process camera image for pose detection with error handling
   Future<void> _processCameraImage(CameraImage image) async {
-    if (_isBusy || !_cameraActive) return;
-    _isBusy = true;
+    // Skip if already detecting or too soon since last detection
+    if (_isDetecting) return;
 
-    final inputImage = _inputImageFromCameraImage(image);
-    if (inputImage == null) {
-      _isBusy = false;
+    final now = DateTime.now();
+    if (_lastDetectionTime != null &&
+        now.difference(_lastDetectionTime!).inMilliseconds <
+            _detectionIntervalMs) {
       return;
     }
 
+    _isDetecting = true;
+    _lastDetectionTime = now;
+
     try {
-      final faces = await _faceDetector?.processImage(inputImage);
-      if (mounted && faces != null && _cameraActive) {
-        setState(() {
-          _faces = faces;
-          _imageSize = Size(
-            image.width.toDouble(),
-            image.height.toDouble(),
-          );
-        });
+      // Store camera image size for coordinate conversion
+      _cameraImageSize = Size(image.width.toDouble(), image.height.toDouble());
+
+      // Convert camera image to InputImage with error handling
+      final inputImage = _convertCameraImageToInputImage(image);
+      if (inputImage == null) {
+        developer.log("⚠️ Failed to convert camera image");
+        return;
       }
+
+      // Process with pose detector
+      final poses = await _poseDetector!.processImage(inputImage);
+
+      // Update wrist detection with smoothing
+      _updateWristDetection(poses);
     } catch (e) {
-      developer.log("Error processing image: $e");
+      developer.log("❌ Error processing camera image: $e");
+      // Reset detection state on error
+      setState(() {
+        _wristDetected = false;
+        _wristPosition = null;
+      });
     } finally {
-      _isBusy = false;
+      _isDetecting = false;
     }
   }
 
-  InputImage? _inputImageFromCameraImage(CameraImage image) {
-    if (_cameraController == null || !_cameraActive) return null;
-
+  /// Convert CameraImage to InputImage with better error handling
+  InputImage? _convertCameraImageToInputImage(CameraImage image) {
     try {
-      // Get camera rotation
       final camera = _cameraController!.description;
-      final imageRotation = InputImageRotationValue.fromRawValue(
-            camera.sensorOrientation,
-          ) ??
-          InputImageRotation.rotation0deg;
+      final rotation =
+          InputImageRotationValue.fromRawValue(camera.sensorOrientation);
 
-      // Get image format
+      if (rotation == null) {
+        developer.log("⚠️ Unknown rotation value: ${camera.sensorOrientation}");
+        return null;
+      }
+
       final format = InputImageFormatValue.fromRawValue(image.format.raw);
-      if (format == null) return null;
+      if (format == null) {
+        developer.log("⚠️ Unknown image format: ${image.format.raw}");
+        return null;
+      }
 
-      final bytes = _concatenatePlanes(image.planes);
+      if (image.planes.isEmpty) {
+        developer.log("⚠️ Image has no planes");
+        return null;
+      }
 
-      // Updated to use the current API
       return InputImage.fromBytes(
-        bytes: bytes,
+        bytes: image.planes[0].bytes,
         metadata: InputImageMetadata(
           size: Size(image.width.toDouble(), image.height.toDouble()),
-          rotation: imageRotation,
+          rotation: rotation,
           format: format,
-          bytesPerRow: image.planes.first.bytesPerRow,
+          bytesPerRow: image.planes[0].bytesPerRow,
         ),
       );
     } catch (e) {
-      developer.log("Error creating input image: $e");
+      developer.log("❌ Error converting camera image: $e");
       return null;
     }
   }
 
-  Uint8List _concatenatePlanes(List<Plane> planes) {
-    final allBytes = WriteBuffer();
-    for (var plane in planes) {
-      allBytes.putUint8List(plane.bytes);
+  /// Enhanced wrist detection with better filtering and multiple wrist checking
+  void _updateWristDetection(List<Pose> poses) {
+    bool wristFound = false;
+    Offset? detectedWristPosition;
+    double bestConfidence = 0.0;
+    String detectedWrist = "";
+
+    for (final pose in poses) {
+      // Check both wrists and pick the one with highest confidence
+      final rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
+      final leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+
+      // Check right wrist
+      if (rightWrist != null && rightWrist.likelihood > _minConfidence) {
+        if (rightWrist.likelihood > bestConfidence) {
+          wristFound = true;
+          detectedWristPosition = Offset(rightWrist.x, rightWrist.y);
+          bestConfidence = rightWrist.likelihood;
+          detectedWrist = "Right";
+        }
+      }
+
+      // Check left wrist
+      if (leftWrist != null && leftWrist.likelihood > _minConfidence) {
+        if (leftWrist.likelihood > bestConfidence) {
+          wristFound = true;
+          detectedWristPosition = Offset(leftWrist.x, leftWrist.y);
+          bestConfidence = leftWrist.likelihood;
+          detectedWrist = "Left";
+        }
+      }
+
+      // Also check for hand landmarks as backup (sometimes more reliable)
+      final rightIndex = pose.landmarks[PoseLandmarkType.rightIndex];
+      final leftIndex = pose.landmarks[PoseLandmarkType.leftIndex];
+
+      if (!wristFound) {
+        // Use hand index as wrist approximation if wrist not detected
+        if (rightIndex != null && rightIndex.likelihood > _minConfidence) {
+          if (rightIndex.likelihood > bestConfidence) {
+            wristFound = true;
+            // Approximate wrist position from index finger
+            detectedWristPosition =
+                Offset(rightIndex.x + 20, rightIndex.y + 30);
+            bestConfidence = rightIndex.likelihood;
+            detectedWrist = "Right (from hand)";
+          }
+        }
+
+        if (leftIndex != null && leftIndex.likelihood > _minConfidence) {
+          if (leftIndex.likelihood > bestConfidence) {
+            wristFound = true;
+            // Approximate wrist position from index finger
+            detectedWristPosition = Offset(leftIndex.x - 20, leftIndex.y + 30);
+            bestConfidence = leftIndex.likelihood;
+            detectedWrist = "Left (from hand)";
+          }
+        }
+      }
     }
-    return allBytes.done().buffer.asUint8List();
+
+    if (wristFound && detectedWristPosition != null) {
+      // Add to recent positions for smoothing
+      _recentWristPositions.add(detectedWristPosition);
+      if (_recentWristPositions.length > _maxRecentPositions) {
+        _recentWristPositions.removeAt(0);
+      }
+
+      _consecutiveDetections++;
+
+      // Show watch after consecutive detections
+      if (_consecutiveDetections >= _minConsecutiveDetections) {
+        // Calculate smoothed position
+        Offset smoothedPosition = _calculateSmoothedPosition();
+
+        setState(() {
+          _wristDetected = true;
+          _wristPosition = smoothedPosition;
+        });
+
+        developer.log(
+            "✅ $detectedWrist wrist detected at (${smoothedPosition.dx.toInt()}, ${smoothedPosition.dy.toInt()}) with confidence ${(bestConfidence * 100).toInt()}%");
+      }
+    } else {
+      _consecutiveDetections = 0;
+      _recentWristPositions.clear();
+
+      setState(() {
+        _wristDetected = false;
+        _wristPosition = null;
+      });
+
+      developer.log("❌ No wrist detected or confidence too low");
+    }
   }
 
-  void _toggleCamera() {
+  /// Calculate smoothed position from recent detections
+  Offset _calculateSmoothedPosition() {
+    if (_recentWristPositions.isEmpty) return Offset.zero;
+
+    double totalX = 0;
+    double totalY = 0;
+
+    // Give more weight to recent positions
+    for (int i = 0; i < _recentWristPositions.length; i++) {
+      double weight =
+          (i + 1) / _recentWristPositions.length; // More recent = higher weight
+      totalX += _recentWristPositions[i].dx * weight;
+      totalY += _recentWristPositions[i].dy * weight;
+    }
+
+    double weightSum = 0;
+    for (int i = 1; i <= _recentWristPositions.length; i++) {
+      weightSum += i / _recentWristPositions.length;
+    }
+
+    return Offset(totalX / weightSum, totalY / weightSum);
+  }
+
+  Future<void> _flipCamera() async {
     _initializeCamera(!_isUsingFrontCamera);
   }
 
-  void _toggleAdjustmentControls() {
-    setState(() {
-      _showAdjustmentControls = !_showAdjustmentControls;
-    });
-  }
-
-  void _toggleWristSide() {
-    setState(() {
-      _useLeftWrist = !_useLeftWrist;
-      _horizontalOffset = -_horizontalOffset; // Flip the horizontal offset
-    });
-  }
-
-  Future<void> _captureAndSaveImage() async {
-    if (_isCapturing || !_cameraActive) return;
+  Future<void> _captureImage() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
 
     setState(() {
       _isCapturing = true;
     });
 
     try {
-      // 1. Hide ALL UI elements before capturing
-      final bool wasShowingControls = _showAdjustmentControls;
-      final bool wasShowingTooltip = _showTooltip;
-      final bool wasShowingLoading = _isImageLoading;
+      // Capture the AR screen
+      final boundary = _globalKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary != null) {
+        final image = await boundary.toImage(pixelRatio: 3.0);
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        final pngBytes = byteData!.buffer.asUint8List();
 
-      // Completely hide UI elements including the capture indicator itself
-      setState(() {
-        _showAdjustmentControls = false;
-        _showTooltip = false;
-        _isImageLoading = false;
-        _isForceCaptureMode = true; // Enter special capture mode
-      });
-
-      // 2. Essential: Wait for UI to update completely with longer delay
-      await Future.delayed(const Duration(milliseconds: 1200));
-
-      // 3. Stop camera stream for clean capture
-      bool wasStreaming = false;
-      if (_cameraController != null &&
-          _cameraController!.value.isInitialized &&
-          _cameraController!.value.isStreamingImages) {
-        wasStreaming = true;
-        await _cameraController!.stopImageStream();
-      }
-
-      // 4. Additional delay for clean frame
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // 5. Capture the screen with highest quality
-      RenderRepaintBoundary? boundary = _globalKey.currentContext
-          ?.findRenderObject() as RenderRepaintBoundary?;
-
-      if (boundary == null) {
-        throw Exception("Failed to find the repaint boundary");
-      }
-
-      // Capture at maximum resolution
-      ui.Image image = await boundary.toImage(pixelRatio: 4.0);
-      ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-
-      if (byteData == null) {
-        throw Exception("Failed to convert image to bytes");
-      }
-
-      Uint8List pngBytes = byteData.buffer.asUint8List();
-
-      // 6. Save to gallery with meaningful name
-      final result = await ImageGallerySaver.saveImage(
-        pngBytes,
-        quality: 100,
-        name:
-            "Watch_${widget.productTitle.replaceAll(" ", "_")}_${DateTime.now().millisecondsSinceEpoch}",
-      );
-
-      // 7. Wait before showing success and restoring UI
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // 8. Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Image saved to gallery"),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        // Save to gallery
+        final result = await ImageGallerySaver.saveImage(
+          Uint8List.fromList(pngBytes),
+          quality: 100,
+          name: "AR_Watch_${DateTime.now().millisecondsSinceEpoch}",
         );
-      }
 
-      // 9. Restore UI state
-      if (mounted) {
-        setState(() {
-          _showAdjustmentControls = wasShowingControls;
-          _showTooltip = wasShowingTooltip;
-          _isImageLoading = wasShowingLoading;
-          _isForceCaptureMode = false; // Exit force capture mode
-        });
-      }
-
-      // 10. Restart camera
-      if (mounted &&
-          wasStreaming &&
-          _cameraController != null &&
-          _cameraController!.value.isInitialized &&
-          !_cameraController!.value.isStreamingImages &&
-          _cameraActive) {
-        try {
-          await _cameraController!.startImageStream(_processCameraImage);
-        } catch (e) {
-          developer.log("Error restarting camera stream: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['isSuccess']
+                  ? 'AR photo saved!'
+                  : 'Failed to save photo'),
+              backgroundColor: result['isSuccess'] ? Colors.green : Colors.red,
+            ),
+          );
         }
       }
     } catch (e) {
-      developer.log("Error capturing image: $e");
+      developer.log("❌ Error capturing image: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to save image: ${e.toString()}"),
+          const SnackBar(
+            content: Text('Failed to capture AR photo'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
           ),
         );
       }
-    } finally {
-      // Always ensure we exit all special modes
-      await Future.delayed(const Duration(milliseconds: 200));
-      if (mounted) {
-        setState(() {
-          _isCapturing = false;
-          _isForceCaptureMode =
-              false; // Always ensure we exit force capture mode
-        });
-      }
     }
+
+    setState(() {
+      _isCapturing = false;
+    });
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
-      _disposeCurrentCamera();
-    } else if (state == AppLifecycleState.resumed) {
-      if (!_cameraActive) {
-        _initializeCamera(_isUsingFrontCamera);
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _disposeCurrentCamera();
-    _faceDetector?.close();
-    super.dispose();
+  Widget _buildControlButton(
+      {required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    );
   }
 
   @override
@@ -697,6 +674,7 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
 
     // Show loading indicator while initializing
     if (_isInitializing ||
+        _isImageLoading ||
         _cameraController == null ||
         !_cameraController!.value.isInitialized) {
       return Container(
@@ -705,427 +683,208 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(
-                color: Colors.white,
-              ),
+              CircularProgressIndicator(color: Colors.white),
               SizedBox(height: 16),
-              Text(
-                "Loading AR watch...",
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
+              Text("Loading AR watch...",
+                  style: TextStyle(color: Colors.white, fontSize: 16)),
             ],
           ),
         ),
       );
     }
 
-    // Camera view with face detection overlay
-    return Stack(
-      children: [
-        // Main content in RepaintBoundary for clean capture
-        RepaintBoundary(
-          key: _globalKey,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Camera preview
-              CameraPreview(_cameraController!),
+    // Camera view with watch overlay
+    return RepaintBoundary(
+      key: _globalKey,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Camera preview
+          CameraPreview(_cameraController!),
 
-              // IMPORTANT: Only show loading overlay during image loading, not when camera is ready
-              // Also don't show during image capture or force capture mode
-              if (_isImageLoading && !_isCapturing && !_isForceCaptureMode)
-                Container(
-                  color: Colors.black.withOpacity(0.7),
-                  child: const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(height: 16),
-                        Text("Loading watch image...",
-                            style: TextStyle(color: Colors.white))
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Face overlay with watch - ALWAYS show the watch even if no faces detected
-              // ONLY SHOW WHEN IMAGE IS LOADED - Prevent the placeholder from showing
-              if (!_isImageLoading && _watchImage != null)
-                CustomPaint(
-                  painter: AssetWatchesPainter(
-                    faces: _faces.isEmpty
-                        ? [
-                            Face(
-                              boundingBox:
-                                  Rect.fromLTWH(0, 0, 100, 100), // Dummy face
-                              landmarks: {},
-                              contours: {},
-                              trackingId: 1,
-                            )
-                          ]
-                        : _faces,
-                    imageSize:
-                        _imageSize ?? Size(100, 100), // Provide default size
-                    screenSize: MediaQuery.of(context).size,
-                    cameraLensDirection:
-                        _cameraController!.description.lensDirection,
-                    showWatch: true,
-                    watchImage: _watchImage,
-                    widthScale: _widthScale,
-                    heightScale: _heightScale,
-                    horizontalOffset: _useLeftWrist
-                        ? -_horizontalOffset.abs()
-                        : _horizontalOffset.abs(),
-                    verticalOffset: _verticalOffset,
-                    stabilizePosition: true,
-                  ),
-                ),
-
-              // Show initial tooltip for watch positioning
-              if (_showTooltip &&
-                  !_isImageLoading &&
-                  !_isCapturing &&
-                  !_isForceCaptureMode)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 80,
-                  left: 20,
-                  right: 20,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          "Position your arm in frame and use the adjustment controls to resize and reposition the watch",
-                          style: TextStyle(color: Colors.white, fontSize: 14),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _showTooltip = false;
-                              _showAdjustmentControls = true;
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                          ),
-                          child: const Text("Show Controls"),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Adjustment controls
-              if (_showAdjustmentControls &&
-                  !_isCapturing &&
-                  !_isImageLoading &&
-                  !_isForceCaptureMode)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 60,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    color: Colors.black.withAlpha(138),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Width adjustment
-                        Row(
-                          children: [
-                            const Icon(Icons.width_normal,
-                                color: Colors.white, size: 18),
-                            const SizedBox(width: 8),
-                            const Text('Size:',
-                                style: TextStyle(color: Colors.white)),
-                            Expanded(
-                              child: Slider(
-                                value: _widthScale,
-                                min: 0.8,
-                                max: 3.0, // Increased max size
-                                divisions: 25,
-                                activeColor: Colors.blue,
-                                inactiveColor: Colors.grey,
-                                label: _widthScale.toStringAsFixed(1),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _widthScale = value;
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Position adjustment (horizontal)
-                        Row(
-                          children: [
-                            const Icon(Icons.horizontal_distribute,
-                                color: Colors.white, size: 18),
-                            const SizedBox(width: 8),
-                            const Text('Distance:',
-                                style: TextStyle(color: Colors.white)),
-                            Expanded(
-                              child: Slider(
-                                value: _horizontalOffset.abs(),
-                                min: 0.3,
-                                max:
-                                    3.0, // Increased max distance to cover more of the hand
-                                divisions: 27,
-                                activeColor: Colors.blue,
-                                inactiveColor: Colors.grey,
-                                label:
-                                    _horizontalOffset.abs().toStringAsFixed(1),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _horizontalOffset =
-                                        _useLeftWrist ? -value : value;
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Vertical position adjustment
-                        Row(
-                          children: [
-                            const Icon(Icons.vertical_align_center,
-                                color: Colors.white, size: 18),
-                            const SizedBox(width: 8),
-                            const Text('Height:',
-                                style: TextStyle(color: Colors.white)),
-                            Expanded(
-                              child: Slider(
-                                value: _verticalOffset,
-                                min: 0.5, // Higher in the screen
-                                max: 0.9, // Lower in the screen
-                                divisions: 20,
-                                activeColor: Colors.blue,
-                                inactiveColor: Colors.grey,
-                                label:
-                                    (_verticalOffset * 100).toStringAsFixed(0) +
-                                        "%",
-                                onChanged: (value) {
-                                  setState(() {
-                                    _verticalOffset = value;
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Wrist selection
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text('Wrist:',
-                                style: TextStyle(color: Colors.white)),
-                            const SizedBox(width: 12),
-                            ChoiceChip(
-                              label: const Text('Left'),
-                              selected: _useLeftWrist,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    _useLeftWrist = true;
-                                    _horizontalOffset =
-                                        -_horizontalOffset.abs();
-                                  });
-                                }
-                              },
-                              selectedColor: Colors.blue,
-                              labelStyle: TextStyle(
-                                color:
-                                    _useLeftWrist ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            ChoiceChip(
-                              label: const Text('Right'),
-                              selected: !_useLeftWrist,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  setState(() {
-                                    _useLeftWrist = false;
-                                    _horizontalOffset = _horizontalOffset.abs();
-                                  });
-                                }
-                              },
-                              selectedColor: Colors.blue,
-                              labelStyle: TextStyle(
-                                color: !_useLeftWrist
-                                    ? Colors.white
-                                    : Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Bottom controls
-              if (!_isCapturing && !_isImageLoading && !_isForceCaptureMode)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    color: Colors.black.withAlpha(138),
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        // Camera toggle button
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: Colors.black38,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.flip_camera_ios,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            onPressed:
-                                widget.cameras.length > 1 && !_isInitializing
-                                    ? _toggleCamera
-                                    : null,
-                          ),
-                        ),
-
-                        // Capture photo button
-                        CircleAvatar(
-                          radius: 35,
-                          backgroundColor: Colors.white,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.camera,
-                              color: Colors.black,
-                              size: 32,
-                            ),
-                            onPressed: _captureAndSaveImage,
-                          ),
-                        ),
-
-                        // Adjustment button
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: _showAdjustmentControls
-                              ? Colors.blue.withAlpha(153)
-                              : Colors.black38,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.tune,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            onPressed: _toggleAdjustmentControls,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-
-        // Capture overlay - OUTSIDE the RepaintBoundary so it doesn't appear in saved images
-        if (_isCapturing && !_isForceCaptureMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 120,
-            child: Container(
-              color: Colors.black.withAlpha(120),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      color: Colors.white,
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      "Saving image...",
-                      style: TextStyle(color: Colors.white),
+          // Watch overlay - Show when wrist is detected with real-time position
+          if (!_isImageLoading && _watchImage != null && _wristDetected)
+            CustomPaint(
+              painter: _wristPosition != null && _cameraImageSize != null
+                  ? WristWatchPainter(
+                      watchImage: _watchImage!,
+                      screenSize: MediaQuery.of(context).size,
+                      isFrontCamera: _isUsingFrontCamera,
+                      widthScale: _widthScale,
+                      heightScale: _heightScale,
+                      wristPosition: _wristPosition!,
+                      cameraSize: _cameraImageSize!,
                     )
+                  : SimpleWatchPainter(
+                      watchImage: _watchImage!,
+                      screenSize: MediaQuery.of(context).size,
+                      isFrontCamera: _isUsingFrontCamera,
+                      widthScale: _widthScale,
+                      heightScale: _heightScale,
+                    ),
+              child: Container(),
+            ),
+
+          // Status indicator - Show wrist detection status
+          if (!_isImageLoading && !_isCapturing)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 80,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (_wristDetected ? Colors.green : Colors.orange)
+                      .withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _wristDetected
+                      ? "✅ Watch Active - Tracking Your Wrist!"
+                      : _consecutiveDetections > 0
+                          ? "🔄 Detecting... (${_consecutiveDetections}/${_minConsecutiveDetections})"
+                          : "🤚 Position your wrist in view to try on the watch",
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+
+          // Simple size adjustment controls like sunglasses
+          if (_showSizeControls && !_isCapturing)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 60,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.5),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Width adjustment
+                    Row(
+                      children: [
+                        const Icon(Icons.width_normal,
+                            color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        const Text('Width:',
+                            style: TextStyle(color: Colors.white)),
+                        Expanded(
+                          child: Slider(
+                            value: _widthScale,
+                            min: 0.5,
+                            max: 2.0,
+                            divisions: 30,
+                            activeColor: Colors.blue,
+                            inactiveColor: Colors.grey,
+                            label: _widthScale.toStringAsFixed(1),
+                            onChanged: (value) {
+                              setState(() {
+                                _widthScale = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Height adjustment
+                    Row(
+                      children: [
+                        const Icon(Icons.height, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        const Text('Height:',
+                            style: TextStyle(color: Colors.white)),
+                        Expanded(
+                          child: Slider(
+                            value: _heightScale,
+                            min: 0.5,
+                            max: 2.0,
+                            divisions: 30,
+                            activeColor: Colors.blue,
+                            inactiveColor: Colors.grey,
+                            label: _heightScale.toStringAsFixed(1),
+                            onChanged: (value) {
+                              setState(() {
+                                _heightScale = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
             ),
-          ),
-      ],
+
+          // Bottom camera controls
+          if (!_isCapturing)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.5),
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Camera flip button
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.black45,
+                      child: IconButton(
+                        icon: const Icon(Icons.flip_camera_ios,
+                            color: Colors.white, size: 28),
+                        onPressed: _flipCamera,
+                      ),
+                    ),
+
+                    // Capture button
+                    CircleAvatar(
+                      radius: 35,
+                      backgroundColor: Colors.white,
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt,
+                            color: Colors.black, size: 35),
+                        onPressed: _captureImage,
+                      ),
+                    ),
+
+                    // Size adjustment button
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: _showSizeControls
+                          ? Colors.blue.withValues(alpha: 0.6)
+                          : Colors.black45,
+                      child: IconButton(
+                        icon: const Icon(Icons.straighten,
+                            color: Colors.white, size: 28),
+                        onPressed: () => setState(
+                            () => _showSizeControls = !_showSizeControls),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Capture overlay
+          if (_isCapturing)
+            Container(
+              color: Colors.black.withValues(alpha: 0.3),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ),
+        ],
+      ),
     );
-  }
-
-  Future<void> _createPlaceholderImage() async {
-    // Create a simple colored placeholder
-    try {
-      developer.log("Creating placeholder image as last resort");
-
-      // Create a canvas to draw the placeholder
-      final pictureRecorder = ui.PictureRecorder();
-      final canvas = Canvas(pictureRecorder);
-      final size = const Size(200, 200);
-
-      // Draw a watch shape
-      final paint = Paint()
-        ..color = Colors.grey.shade800
-        ..style = PaintingStyle.fill;
-
-      final borderPaint = Paint()
-        ..color = Colors.grey.shade400
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 8;
-
-      // Draw the watch face
-      canvas.drawCircle(
-        Offset(size.width / 2, size.height / 2),
-        size.width / 2 - 20,
-        paint,
-      );
-
-      canvas.drawCircle(
-        Offset(size.width / 2, size.height / 2),
-        size.width / 2 - 20,
-        borderPaint,
-      );
-
-      // Convert to image
-      final picture = pictureRecorder.endRecording();
-      final img =
-          await picture.toImage(size.width.toInt(), size.height.toInt());
-
-      // Set as watch image
-      if (mounted) {
-        setState(() {
-          _watchImage = img;
-          _errorMessage = null;
-        });
-      }
-
-      developer.log("Created placeholder image successfully");
-    } catch (e) {
-      developer.log("Failed to create placeholder image: $e");
-      if (mounted) {
-        setState(() {
-          _errorMessage =
-              "Failed to load any watch image. Please try another product.";
-        });
-      }
-    }
   }
 }

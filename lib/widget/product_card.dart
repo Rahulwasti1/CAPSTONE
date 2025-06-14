@@ -1,7 +1,6 @@
 import 'dart:convert'; // For Base64 decoding
 import 'dart:typed_data'; // For Uint8List
 import 'package:flutter/material.dart';
-import 'package:capstone/constants/colors.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as developer;
 
@@ -17,6 +16,8 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     // Extract product data
     String title = product['title'] ?? 'Unknown Product';
 
@@ -38,11 +39,11 @@ class ProductCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(10.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(13),
+              color: theme.shadowColor.withValues(alpha: 0.1),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -58,44 +59,53 @@ class ProductCard extends StatelessWidget {
                 topRight: Radius.circular(10.r),
               ),
               child: Container(
-                height: 110.h,
+                height: 120.h, // Slightly increased height
                 width: double.infinity,
-                color: Colors.grey[200],
-                child: _buildProductImage(imagesList),
+                color: theme.brightness == Brightness.dark
+                    ? Colors.grey[800]
+                    : Colors.grey[200],
+                child: _buildProductImage(imagesList, context),
               ),
             ),
 
-            // Product Details
-            Padding(
-              padding: EdgeInsets.all(8.r),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  SizedBox(
-                    height: 32.h,
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w500,
+            // Product Details - Flexible layout
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(8.r),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title - Takes most available space
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14.sp, // Good readable size
+                          fontWeight: FontWeight.w500,
+                          color: theme.textTheme.titleMedium?.color,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
                     ),
-                  ),
-                  SizedBox(height: 4.h),
 
-                  // Price
-                  Text(
-                    price,
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF6C4024),
+                    // Small spacing
+                    SizedBox(height: 4.h),
+
+                    // Price - Fixed at bottom
+                    Text(
+                      price,
+                      style: TextStyle(
+                        fontSize: 13.sp, // Good readable size
+                        fontWeight: FontWeight.w600,
+                        color: Colors.brown,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -195,18 +205,19 @@ class ProductCard extends StatelessWidget {
   }
 
   // Helper method to build product image with proper error handling
-  Widget _buildProductImage(List<String> imagesList) {
+  Widget _buildProductImage(List<String> imagesList, BuildContext context) {
     if (imagesList.isEmpty) {
-      return _buildFallbackImage();
+      return _buildFallbackImage(context);
     }
 
     // Try to display the first image in the list, with fallbacks
-    return _tryDisplayImage(imagesList, 0);
+    return _tryDisplayImage(imagesList, 0, context);
   }
 
-  Widget _tryDisplayImage(List<String> images, int index) {
+  Widget _tryDisplayImage(
+      List<String> images, int index, BuildContext context) {
     if (index >= images.length) {
-      return _buildFallbackImage();
+      return _buildFallbackImage(context);
     }
 
     String imageUrl = images[index];
@@ -218,7 +229,7 @@ class ProductCard extends StatelessWidget {
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error loading network image: $error');
-          return _tryDisplayImage(images, index + 1);
+          return _tryDisplayImage(images, index + 1, context);
         },
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
@@ -228,7 +239,7 @@ class ProductCard extends StatelessWidget {
                   ? loadingProgress.cumulativeBytesLoaded /
                       loadingProgress.expectedTotalBytes!
                   : null,
-              color: Colors.grey[400],
+              color: Colors.brown,
               strokeWidth: 2.0,
             ),
           );
@@ -258,16 +269,18 @@ class ProductCard extends StatelessWidget {
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error displaying base64 image: $error');
-          return _tryDisplayImage(images, index + 1);
+          return _tryDisplayImage(images, index + 1, context);
         },
       );
     } catch (e) {
       developer.log('Error decoding base64 image: $e');
-      return _tryDisplayImage(images, index + 1);
+      return _tryDisplayImage(images, index + 1, context);
     }
   }
 
-  Widget _buildFallbackImage() {
+  Widget _buildFallbackImage(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -275,14 +288,14 @@ class ProductCard extends StatelessWidget {
           Icon(
             Icons.image_not_supported_outlined,
             size: 30.sp,
-            color: Colors.grey[400],
+            color: theme.iconTheme.color?.withOpacity(0.5),
           ),
           SizedBox(height: 4.h),
           Text(
             'No image',
             style: TextStyle(
               fontSize: 10.sp,
-              color: Colors.grey[500],
+              color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
             ),
           ),
         ],
@@ -306,6 +319,8 @@ class HorizontalProductList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -319,6 +334,7 @@ class HorizontalProductList extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w600,
+                  color: theme.textTheme.titleLarge?.color,
                 ),
               ),
               TextButton(
@@ -329,7 +345,7 @@ class HorizontalProductList extends StatelessWidget {
                   'View All',
                   style: TextStyle(
                     fontSize: 14.sp,
-                    color: Color(0xFF6C4024),
+                    color: Colors.brown,
                   ),
                 ),
               ),
@@ -371,6 +387,8 @@ class FlashSaleProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     String title = product['title'] ?? 'Unknown Product';
     var priceValue = product['price'];
     String price = 'Price not available';
@@ -388,11 +406,11 @@ class FlashSaleProductCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(10.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: theme.shadowColor.withValues(alpha: 0.15),
               blurRadius: 8,
               offset: const Offset(0, 4),
               spreadRadius: 0,
@@ -402,45 +420,64 @@ class FlashSaleProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(10.r),
-                topRight: Radius.circular(10.r),
-              ),
-              child: Container(
-                height: 110.h,
-                width: double.infinity,
-                color: Colors.grey[200],
-                child: _buildProductImage(imagesList),
+            // Product Image - Takes up most of the space
+            Expanded(
+              flex: 7, // Increased flex for more image space
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(10.r),
+                  topRight: Radius.circular(10.r),
+                ),
+                child: Container(
+                  width: double.infinity,
+                  color: theme.brightness == Brightness.dark
+                      ? Colors.grey[800]
+                      : Colors.grey[200],
+                  child: _buildProductImage(imagesList, context),
+                ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.r, vertical: 6.r),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 28.h,
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
+
+            // Product Details - Flexible space that adapts
+            Expanded(
+              flex: 3, // Reduced flex for text area
+              child: Padding(
+                padding: EdgeInsets.all(8.r),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title - Takes available space
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 13.sp, // Good readable size
+                          fontWeight: FontWeight.w500,
+                          color: theme.textTheme.titleMedium?.color,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
+                    ),
+
+                    // Small spacing
+                    SizedBox(height: 2.h),
+
+                    // Price - Fixed space at bottom
+                    Text(
+                      price,
+                      style: TextStyle(
+                        fontSize: 12.sp, // Good readable size
+                        fontWeight: FontWeight.w600,
+                        color: Colors.brown,
+                      ),
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    price,
-                    style: TextStyle(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF6C4024),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -449,6 +486,7 @@ class FlashSaleProductCard extends StatelessWidget {
     );
   }
 
+  // Extract all possible images from the product data
   List<String> _extractAllImages() {
     List<String> allImages = [];
 
@@ -534,19 +572,24 @@ class FlashSaleProductCard extends StatelessWidget {
       }
     }
 
+    // Remove any duplicates and empty strings
     return allImages.where((img) => img.trim().isNotEmpty).toSet().toList();
   }
 
-  Widget _buildProductImage(List<String> imagesList) {
+  // Helper method to build product image with proper error handling
+  Widget _buildProductImage(List<String> imagesList, BuildContext context) {
     if (imagesList.isEmpty) {
-      return _buildFallbackImage();
+      return _buildFallbackImage(context);
     }
-    return _tryDisplayImage(imagesList, 0);
+
+    // Try to display the first image in the list, with fallbacks
+    return _tryDisplayImage(imagesList, 0, context);
   }
 
-  Widget _tryDisplayImage(List<String> images, int index) {
+  Widget _tryDisplayImage(
+      List<String> images, int index, BuildContext context) {
     if (index >= images.length) {
-      return _buildFallbackImage();
+      return _buildFallbackImage(context);
     }
 
     String imageUrl = images[index];
@@ -558,7 +601,7 @@ class FlashSaleProductCard extends StatelessWidget {
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error loading network image: $error');
-          return _tryDisplayImage(images, index + 1);
+          return _tryDisplayImage(images, index + 1, context);
         },
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
@@ -568,7 +611,7 @@ class FlashSaleProductCard extends StatelessWidget {
                   ? loadingProgress.cumulativeBytesLoaded /
                       loadingProgress.expectedTotalBytes!
                   : null,
-              color: Colors.grey[400],
+              color: Colors.brown,
               strokeWidth: 2.0,
             ),
           );
@@ -598,21 +641,36 @@ class FlashSaleProductCard extends StatelessWidget {
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error displaying base64 image: $error');
-          return _tryDisplayImage(images, index + 1);
+          return _tryDisplayImage(images, index + 1, context);
         },
       );
     } catch (e) {
       developer.log('Error decoding base64 image: $e');
-      return _tryDisplayImage(images, index + 1);
+      return _tryDisplayImage(images, index + 1, context);
     }
   }
 
-  Widget _buildFallbackImage() {
+  Widget _buildFallbackImage(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Center(
-      child: Icon(
-        Icons.image_not_supported,
-        color: Colors.grey[400],
-        size: 24.sp,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_not_supported_outlined,
+            size: 30.sp,
+            color: theme.iconTheme.color?.withValues(alpha: 0.5),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'No image',
+            style: TextStyle(
+              fontSize: 10.sp,
+              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -245,30 +245,47 @@ class _DetailScreenState extends State<DetailScreen>
                             .map((size) => GestureDetector(
                                   onTap: () => setSelectedSize(size),
                                   child: Container(
-                                    width: 50.w,
+                                    width: 60.w,
                                     height: 50.h,
                                     margin: EdgeInsets.only(right: 12.w),
                                     decoration: BoxDecoration(
                                       color: selectedSize == size
-                                          ? Colors.black
+                                          ? Color(0xFF6B4226)
                                           : Colors.white,
                                       borderRadius: BorderRadius.circular(12.r),
                                       border: Border.all(
                                         color: selectedSize == size
-                                            ? Colors.black
+                                            ? Color(0xFF6B4226)
                                             : Colors.grey.shade300,
                                         width: 1.5,
                                       ),
+                                      boxShadow: selectedSize == size
+                                          ? [
+                                              BoxShadow(
+                                                color: Color(0xFF6B4226)
+                                                    .withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: Offset(0, 4),
+                                              )
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: Colors.grey
+                                                    .withOpacity(0.1),
+                                                blurRadius: 4,
+                                                offset: Offset(0, 2),
+                                              )
+                                            ],
                                     ),
                                     child: Center(
                                       child: Text(
-                                        size,
+                                        _getAbbreviatedSize(size),
                                         style: TextStyle(
-                                          fontWeight: FontWeight.bold,
+                                          fontWeight: FontWeight.w600,
                                           fontSize: 16.sp,
                                           color: selectedSize == size
                                               ? Colors.white
-                                              : Colors.black,
+                                              : Colors.black87,
                                         ),
                                       ),
                                     ),
@@ -452,5 +469,20 @@ class _DetailScreenState extends State<DetailScreen>
         ),
       ),
     );
+  }
+
+  // Helper method to get abbreviated size labels
+  String _getAbbreviatedSize(String size) {
+    final abbreviations = {
+      'Small': 'S',
+      'Medium': 'M',
+      'Large': 'L',
+      'Extra Large': 'XL',
+      'XXL': 'XXL',
+      'Free Size': 'F',
+      'One Size': 'OS',
+    };
+
+    return abbreviations[size] ?? size;
   }
 }

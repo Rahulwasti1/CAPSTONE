@@ -1,12 +1,11 @@
-import 'package:capstone/admin/admin_navbar.dart';
-import 'package:capstone/service/auth_service.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/login_screen/login.dart';
 import 'package:capstone/navigation_bar.dart';
-import 'package:capstone/screens/widget.dart';
-import 'package:capstone/widget/snackbar.dart';
+import 'package:capstone/service/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:capstone/screens/widget.dart';
+import 'package:capstone/widget/snackbar.dart';
 
 class UserSignup extends StatefulWidget {
   const UserSignup({super.key});

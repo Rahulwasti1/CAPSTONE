@@ -1,7 +1,7 @@
 import 'package:capstone/screens/product/product_detail_screen.dart';
 import 'package:capstone/widget/product_card.dart';
 import 'package:capstone/widget/user_appbar.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:capstone/service/product_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -41,6 +41,7 @@ class _UserCategoriesState extends State<UserCategories> {
   bool isLoading = true;
   List<Map<String, dynamic>> products = [];
   List<Map<String, dynamic>> filteredProducts = [];
+  final ProductService _productService = ProductService();
 
   @override
   void initState() {
@@ -54,107 +55,100 @@ class _UserCategoriesState extends State<UserCategories> {
     fetchProducts();
   }
 
-  // Fetch products from Firestore
+  // Fetch products using ProductService
   Future<void> fetchProducts() async {
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
     });
 
     try {
-      QuerySnapshot snapshot;
+      List<Map<String, dynamic>> loadedProducts = [];
 
       if (selectedCategory == 'All') {
-        // Get all products
-        snapshot =
-            await FirebaseFirestore.instance.collection('admin_products').get();
-        print('Fetching all products - found ${snapshot.docs.length} products');
+        // Get all products using ProductService
+        loadedProducts = await _productService.getProducts();
+        print(
+            'Fetching all products - found ${loadedProducts.length} products');
       } else {
         // Check if it's a gender category
         if (['Men', 'Women', 'Kids', 'Unisex'].contains(selectedCategory)) {
-          // Filter by gender category
-          snapshot = await FirebaseFirestore.instance
-              .collection('admin_products')
-              .where('genderCategory', isEqualTo: selectedCategory)
-              .get();
+          // Get all products and filter by gender
+          final allProducts = await _productService.getProducts();
+          loadedProducts = allProducts
+              .where((product) => product['genderCategory'] == selectedCategory)
+              .toList();
           print(
-              'Fetching products with gender category "$selectedCategory" - found ${snapshot.docs.length} products');
+              'Fetching products with gender category "$selectedCategory" - found ${loadedProducts.length} products');
         } else {
-          // Filter by product category - using the exact database category name
-          snapshot = await FirebaseFirestore.instance
-              .collection('admin_products')
-              .where('category', isEqualTo: selectedCategory)
-              .get();
+          // Filter by product category using ProductService
+          loadedProducts =
+              await _productService.getProductsByCategory(selectedCategory);
           print(
-              'Fetching products with category "$selectedCategory" - found ${snapshot.docs.length} products');
+              'Fetching products with category "$selectedCategory" - found ${loadedProducts.length} products');
         }
       }
 
-      List<Map<String, dynamic>> loadedProducts = [];
-
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-
-        // Log the category of each product to help with debugging
-        print(
-            'Product "${data['title'] ?? 'Unknown'}": category=${data['category']}, gender=${data['genderCategory']}');
-
+      // Process products to ensure consistent format
+      List<Map<String, dynamic>> processedProducts = [];
+      for (var product in loadedProducts) {
         // Parse price for sorting later
         double parsedPrice = 0.0;
-        if (data['price'] != null) {
-          if (data['price'] is double) {
-            parsedPrice = data['price'];
-          } else if (data['price'] is int) {
-            parsedPrice = (data['price'] as int).toDouble();
-          } else if (data['price'] is String) {
-            parsedPrice = double.tryParse(data['price']) ?? 0.0;
+        if (product['price'] != null) {
+          if (product['price'] is double) {
+            parsedPrice = product['price'];
+          } else if (product['price'] is int) {
+            parsedPrice = (product['price'] as int).toDouble();
+          } else if (product['price'] is String) {
+            parsedPrice = double.tryParse(product['price']) ?? 0.0;
           }
         }
 
         // Prepare price for display
         String formattedPrice = 'Price not available';
-        if (data['price'] != null) {
-          if (data['price'] is int || data['price'] is double) {
-            formattedPrice = 'Rs ${data['price'].toString()}';
-          } else if (data['price'] is String) {
-            formattedPrice = 'Rs ${data['price']}';
+        if (product['price'] != null) {
+          if (product['price'] is int || product['price'] is double) {
+            formattedPrice = 'Rs ${product['price'].toString()}';
+          } else if (product['price'] is String) {
+            formattedPrice = 'Rs ${product['price']}';
           }
         }
 
-        // Get all images
-        List<String> imageURLs = [];
-        if (data['imageURLs'] != null && data['imageURLs'] is List) {
-          imageURLs = List<String>.from(data['imageURLs']);
-        }
-        String? base64Image = imageURLs.isNotEmpty ? imageURLs[0] : null;
-
-        // Convert Firestore document to a map for the product card
-        loadedProducts.add({
-          'id': doc.id,
-          'title': data['title'] ?? 'Unknown Product',
-          'description': data['description'] ?? 'No description available',
+        // Process the product data
+        processedProducts.add({
+          'id': product['id'],
+          'title': product['title'] ?? 'Unknown Product',
+          'description': product['description'] ?? 'No description available',
           'price': formattedPrice,
           'numericPrice': parsedPrice, // Add numeric price for sorting
-          'imageURLs': imageURLs,
-          'base64Image': base64Image,
-          'colors':
-              data['colors'] != null ? List<String>.from(data['colors']) : [],
-          'sizes':
-              data['sizes'] != null ? List<String>.from(data['sizes']) : [],
-          'category': data['category'] ?? 'Uncategorized',
-          'genderCategory': data['genderCategory'] ?? 'Unisex',
+          'imageURLs': product['imageURLs'] ?? [],
+          'base64Image': product['base64Image'],
+          'colors': product['colors'] ?? [],
+          'sizes': product['sizes'] ?? [],
+          'category': product['category'] ?? 'Uncategorized',
+          'genderCategory': product['genderCategory'] ?? 'Unisex',
           'rating': (4 +
-              (doc.id.hashCode % 10) /
+              (product['id'].hashCode % 10) /
                   10), // Generate a random rating between 4.0 and 4.9
         });
+
+        // Debug: Print product info
+        print(
+            'Product "${product['title'] ?? 'Unknown'}": category=${product['category']}, gender=${product['genderCategory']}');
       }
 
+      if (!mounted) return;
+
       setState(() {
-        products = loadedProducts;
+        products = processedProducts;
         applyFiltersAndSort(); // Apply initial filtering and sorting
         isLoading = false;
       });
     } catch (e) {
       print('Error fetching products: $e');
+      if (!mounted) return;
+
       setState(() {
         isLoading = false;
       });
@@ -163,6 +157,8 @@ class _UserCategoriesState extends State<UserCategories> {
 
   // Apply gender filter and sorting option
   void applyFiltersAndSort() {
+    if (!mounted) return;
+
     // First, apply gender filter if needed
     List<Map<String, dynamic>> filtered = [];
 
@@ -226,7 +222,7 @@ class _UserCategoriesState extends State<UserCategories> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -298,14 +294,17 @@ class _UserCategoriesState extends State<UserCategories> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              selectedGenderFilter,
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w500,
+                            Expanded(
+                              child: Text(
+                                selectedGenderFilter,
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Spacer(),
+                            SizedBox(width: 4.w),
                             Icon(Icons.arrow_drop_down, size: 20),
                           ],
                         ),
@@ -338,15 +337,17 @@ class _UserCategoriesState extends State<UserCategories> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'Sort: $selectedSortOption',
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w500,
+                            Expanded(
+                              child: Text(
+                                'Sort: $selectedSortOption',
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                            Spacer(),
+                            SizedBox(width: 4.w),
                             Icon(Icons.arrow_drop_down, size: 20),
                           ],
                         ),
@@ -412,9 +413,9 @@ class _UserCategoriesState extends State<UserCategories> {
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            childAspectRatio: 0.68,
-                            crossAxisSpacing: 10.w,
-                            mainAxisSpacing: 10.h,
+                            childAspectRatio: 0.85,
+                            crossAxisSpacing: 8.w,
+                            mainAxisSpacing: 8.h,
                           ),
                           itemCount: filteredProducts.length,
                           itemBuilder: (context, index) {
@@ -437,44 +438,31 @@ class _UserCategoriesState extends State<UserCategories> {
                                 ),
                                 // Heart icon in top-right
                                 Positioned(
-                                  top: 8,
-                                  right: 8,
+                                  top: 8.h,
+                                  right: 8.w,
                                   child: Container(
-                                    padding: EdgeInsets.all(6),
+                                    height: 32.h,
+                                    width: 32.w,
                                     decoration: BoxDecoration(
                                       color: Color(0xFF6C4024),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.favorite_border,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                                // Rating at bottom
-                                Positioned(
-                                  bottom: 8,
-                                  left: 0,
-                                  right: 0,
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.star,
-                                          color: Color(0xFF6C4024),
-                                          size: 16,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          "${product['rating'].toStringAsFixed(1)}",
-                                          style: TextStyle(
-                                            color: Color(0xFF6C4024),
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                                      borderRadius: BorderRadius.circular(16.r),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
                                         ),
                                       ],
+                                    ),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        // Handle favorite
+                                      },
+                                      child: Icon(
+                                        Icons.favorite_border,
+                                        color: Colors.white,
+                                        size: 18.sp,
+                                      ),
                                     ),
                                   ),
                                 ),

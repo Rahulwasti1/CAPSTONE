@@ -3,6 +3,7 @@ import 'package:capstone/login_screen/onboarding1.dart';
 import 'package:capstone/navigation_bar.dart';
 import 'package:capstone/provider/cart_provider.dart';
 import 'package:capstone/provider/favourite_provider.dart';
+import 'package:capstone/providers/theme_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -54,19 +55,27 @@ class MyApp extends StatelessWidget {
             return favoriteProvider;
           },
         ),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(),
+        ),
       ],
       child: ScreenUtilInit(
         designSize: const Size(360, 690),
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (context, child) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'Flutter Demo',
-            theme: ThemeData(
-              primarySwatch: Colors.blue,
-            ),
-            home: const AuthenticationWrapper(),
+          return Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: 'AR Fashion',
+                theme: themeProvider.lightTheme,
+                darkTheme: themeProvider.darkTheme,
+                themeMode:
+                    themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+                home: const AuthenticationWrapper(),
+              );
+            },
           );
         },
       ),

@@ -1,4 +1,5 @@
 import 'package:capstone/constants/colors.dart';
+import 'package:capstone/screens/categories/categories.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -26,7 +27,10 @@ class CustomListViewBuilder {
                 child: Column(
                   children: [
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        // Navigate to categories page with specific category
+                        _navigateToCategory(context, buttonData[index]["text"]);
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFFf8f3f0),
                         elevation: 0.1,
@@ -50,6 +54,18 @@ class CustomListViewBuilder {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  // Navigate to categories page with specific category selected
+  void _navigateToCategory(BuildContext context, String categoryName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserCategories(
+          initialCategory: categoryName,
         ),
       ),
     );

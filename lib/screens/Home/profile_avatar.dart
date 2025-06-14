@@ -16,12 +16,30 @@ class ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: circle,
-      backgroundColor: Colors.white,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(circle),
-        child: _buildProfileImage(),
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: theme.dividerColor.withOpacity(0.2),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: circle,
+        backgroundColor: theme.cardColor,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(circle),
+          child: _buildProfileImage(),
+        ),
       ),
     );
   }
@@ -72,6 +90,7 @@ class ProfileAvatar extends StatelessWidget {
                       loadingProgress.expectedTotalBytes!
                   : null,
               strokeWidth: 2.0,
+              color: Colors.brown,
             ),
           );
         },
@@ -87,6 +106,22 @@ class ProfileAvatar extends StatelessWidget {
       width: circle * 2,
       height: circle * 2,
       fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        // If asset image fails, show a default icon
+        return Container(
+          width: circle * 2,
+          height: circle * 2,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.person,
+            size: circle * 0.8,
+            color: Colors.grey[600],
+          ),
+        );
+      },
     );
   }
 }

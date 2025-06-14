@@ -3,12 +3,14 @@ import 'package:capstone/screens/cart/cart.dart';
 import 'package:capstone/screens/categories/categories.dart';
 import 'package:capstone/screens/home/userhome.dart';
 import 'package:capstone/screens/Profile/profile.dart';
-import 'package:capstone/screens/TryOn/try_on.dart';
+import 'package:capstone/providers/theme_provider.dart';
+// import 'package:capstone/screens/TryOn/try_on.dart'; // Removed unused import
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'dart:developer' as developer;
 
 class UserNavigation extends StatefulWidget {
@@ -22,7 +24,7 @@ class _UserNavigationState extends State<UserNavigation> {
   List screens = [
     Userhome(),
     UserCategories(),
-    UserTryOn(),
+    UserCategories(), // Changed from UserTryOn() to UserCategories() as a placeholder
     UserCart(),
     UserProfile(),
   ];
@@ -85,100 +87,107 @@ class _UserNavigationState extends State<UserNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      floatingActionButton: SizedBox(
-        height: 90.h,
-        width: 60.w,
-        child: FloatingActionButton(
-          onPressed: () {
-            setState(() {
-              currentIndex = 2;
-            });
-          },
-          shape: CircleBorder(),
-          backgroundColor: CustomColors.secondaryColor,
-          child: SizedBox(
-              height: 25, child: Image.asset("assets/images/scanner.png")),
-          // child: Icon(
-          //   Icons.camera_front,
-          //   size: 32,
-          //   color: Colors.white,
-          // ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-      bottomNavigationBar: SingleChildScrollView(
-        child: BottomAppBar(
-          elevation: 1,
-          height: 50,
-          shape: CircularNotchedRectangle(),
-          notchMargin: 10,
-          color: const Color.fromARGB(255, 252, 252, 252),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                  onPressed: () {
-                    setState(() {
-                      currentIndex = 0;
-                    });
-                  },
-                  icon: Icon(
-                    Iconsax.home,
-                    size: 28,
-                    color: currentIndex == 0
-                        ? CustomColors.secondaryColor
-                        : Colors.grey,
-                  )),
-              SizedBox(width: 10.w),
-              IconButton(
-                  onPressed: () {
-                    setState(() {
-                      currentIndex = 1;
-                    });
-                  },
-                  icon: Icon(
-                    Iconsax.category,
-                    size: 25,
-                    color: currentIndex == 1
-                        ? CustomColors.secondaryColor
-                        : Colors.grey,
-                  )),
-              SizedBox(width: 75),
-              IconButton(
-                  onPressed: () {
-                    setState(() {
-                      currentIndex = 3;
-                    });
-                  },
-                  icon: Icon(
-                    Iconsax.shopping_cart,
-                    size: 25,
-                    color: currentIndex == 3
-                        ? CustomColors.secondaryColor
-                        : Colors.grey,
-                  )),
-              SizedBox(width: 10.w),
-              IconButton(
-                  onPressed: () {
-                    setState(() {
-                      currentIndex = 4;
-                    });
-                  },
-                  icon: Icon(
-                    Iconsax.user,
-                    size: 25,
-                    color: currentIndex == 4
-                        ? CustomColors.secondaryColor
-                        : Colors.grey,
-                  ))
-            ],
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final theme = Theme.of(context);
+
+        return Scaffold(
+          resizeToAvoidBottomInset: false,
+          backgroundColor: theme.scaffoldBackgroundColor,
+          floatingActionButton: SizedBox(
+            height: 90.h,
+            width: 60.w,
+            child: FloatingActionButton(
+              onPressed: () {
+                setState(() {
+                  currentIndex = 2;
+                });
+              },
+              shape: CircleBorder(),
+              backgroundColor: CustomColors.secondaryColor,
+              child: SizedBox(
+                  height: 25, child: Image.asset("assets/images/scanner.png")),
+              // child: Icon(
+              //   Icons.camera_front,
+              //   size: 32,
+              //   color: Colors.white,
+              // ),
+            ),
           ),
-        ),
-      ),
-      body: screens[currentIndex],
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
+          bottomNavigationBar: SingleChildScrollView(
+            child: BottomAppBar(
+              elevation: 1,
+              height: 50,
+              shape: CircularNotchedRectangle(),
+              notchMargin: 10,
+              color: theme.cardColor,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  IconButton(
+                      onPressed: () {
+                        setState(() {
+                          currentIndex = 0;
+                        });
+                      },
+                      icon: Icon(
+                        Iconsax.home,
+                        size: 28,
+                        color: currentIndex == 0
+                            ? CustomColors.secondaryColor
+                            : theme.iconTheme.color?.withOpacity(0.6),
+                      )),
+                  SizedBox(width: 10.w),
+                  IconButton(
+                      onPressed: () {
+                        setState(() {
+                          currentIndex = 1;
+                        });
+                      },
+                      icon: Icon(
+                        Iconsax.category,
+                        size: 25,
+                        color: currentIndex == 1
+                            ? CustomColors.secondaryColor
+                            : theme.iconTheme.color?.withOpacity(0.6),
+                      )),
+                  SizedBox(width: 75),
+                  IconButton(
+                      onPressed: () {
+                        setState(() {
+                          currentIndex = 3;
+                        });
+                      },
+                      icon: Icon(
+                        Iconsax.shopping_cart,
+                        size: 25,
+                        color: currentIndex == 3
+                            ? CustomColors.secondaryColor
+                            : theme.iconTheme.color?.withOpacity(0.6),
+                      )),
+                  SizedBox(width: 10.w),
+                  IconButton(
+                      onPressed: () {
+                        setState(() {
+                          currentIndex = 4;
+                        });
+                      },
+                      icon: Icon(
+                        Iconsax.user,
+                        size: 25,
+                        color: currentIndex == 4
+                            ? CustomColors.secondaryColor
+                            : theme.iconTheme.color?.withOpacity(0.6),
+                      ))
+                ],
+              ),
+            ),
+          ),
+          body: screens[currentIndex],
+        );
+      },
     );
   }
 }
