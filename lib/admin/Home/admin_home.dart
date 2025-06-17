@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:capstone/admin/debug_asset_manager.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key});
@@ -16,7 +17,7 @@ class _AdminHomeState extends State<AdminHome> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  String adminName = "Admin";
+  String adminName = "Rahul Wasti";
 
   // Order statistics (will be fetched from Firebase)
   int pendingOrders = 7;
@@ -114,7 +115,7 @@ class _AdminHomeState extends State<AdminHome> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Welcome Rahul,",
+                            "Welcome ${adminName.split(' ')[0]},",
                             style: TextStyle(
                               fontSize: 22.sp,
                               fontWeight: FontWeight.bold,
@@ -202,6 +203,27 @@ class _AdminHomeState extends State<AdminHome> {
                         "View Orders", Iconsax.document_text, Colors.orange),
                     _buildQuickActionButton(
                         "Settings", Iconsax.setting, Colors.blue),
+                  ],
+                ),
+
+                SizedBox(height: 16.h),
+
+                // Debug section (for development)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DebugAssetManager(),
+                          ),
+                        );
+                      },
+                      child: _buildQuickActionButton(
+                          "Debug Images", Iconsax.image, Colors.purple),
+                    ),
                   ],
                 ),
 

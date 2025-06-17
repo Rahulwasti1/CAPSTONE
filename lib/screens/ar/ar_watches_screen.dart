@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:capstone/screens/ar/asset_watches_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:capstone/service/asset_organizer_service.dart';
 
 class ARWatchesScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -122,7 +123,18 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
 
       ui.Image? loadedImage;
 
-      // Try loading from Firebase images (base64)
+      // Priority 1: Try loading from organized document storage
+      loadedImage = await _tryLoadFromDocumentStorage();
+      if (loadedImage != null) {
+        setState(() {
+          _watchImage = loadedImage;
+          _isImageLoading = false;
+        });
+        developer.log("✅ Loaded watch from document storage");
+        return;
+      }
+
+      // Priority 2: Try loading from Firebase images (base64)
       if (widget.productData != null) {
         loadedImage = await _tryLoadFromFirebaseImages();
         if (loadedImage != null) {
@@ -135,7 +147,7 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
         }
       }
 
-      // Try loading from product assets
+      // Priority 3: Try loading from product assets
       loadedImage = await _tryLoadFromProductAssets();
       if (loadedImage != null) {
         setState(() {
@@ -206,6 +218,40 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     } catch (e) {
       return null;
     }
+  }
+
+  Future<ui.Image?> _tryLoadFromDocumentStorage() async {
+    try {
+      List<File> documentImages = await AssetOrganizerService.getProductImages(
+        category: 'Watches',
+        productId: widget.productId,
+        productTitle: widget.productTitle,
+        selectedColor: null,
+      );
+
+      if (documentImages.isNotEmpty) {
+        print('🎯 Found ${documentImages.length} organized watch images');
+
+        // Try to load the first matching image
+        for (File imageFile in documentImages) {
+          try {
+            final bytes = await imageFile.readAsBytes();
+            final codec = await ui.instantiateImageCodec(bytes);
+            final frame = await codec.getNextFrame();
+            print('✅ Loaded organized document watch image: ${imageFile.path}');
+            return frame.image;
+          } catch (e) {
+            print(
+                '❌ Failed to load document watch image: ${imageFile.path} - $e');
+            continue;
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ Error loading from document storage: $e');
+    }
+
+    return null;
   }
 
   Future<ui.Image?> _tryLoadFromGenericAssets() async {

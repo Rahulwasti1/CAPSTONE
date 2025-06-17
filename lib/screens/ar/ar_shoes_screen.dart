@@ -1,19 +1,27 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:capstone/service/asset_organizer_service.dart';
 import 'asset_shoes_painter.dart';
 
 class ARShoesScreen extends StatefulWidget {
   final String productName;
   final String productImage;
+  final String? productId;
+  final Map<String, dynamic>? productData;
 
   const ARShoesScreen({
     super.key,
     required this.productName,
     required this.productImage,
+    this.productId,
+    this.productData,
   });
 
   @override
@@ -48,6 +56,7 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
   double _shoeSize = 1.0;
   bool _showShoes = true;
   String _detectionStatus = 'Initializing...';
+  String _effectiveImagePath = '';
 
   // Position smoothing
   final List<Offset> _recentLeftFootPositions = [];
@@ -57,7 +66,74 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
   @override
   void initState() {
     super.initState();
+    _loadShoeImage();
     _initializeCamera();
+  }
+
+  Future<void> _loadShoeImage() async {
+    try {
+      // Priority 1: Try organized document storage
+      List<File> documentImages = await AssetOrganizerService.getProductImages(
+        category: 'Shoes',
+        productId: widget.productId ??
+            widget.productName, // Use productId if available, fallback to name
+        productTitle: widget.productName,
+        selectedColor: null,
+      );
+
+      if (documentImages.isNotEmpty) {
+        print('🎯 Found ${documentImages.length} organized shoe images');
+        _effectiveImagePath = documentImages.first.path;
+        print('✅ Using organized shoe image: $_effectiveImagePath');
+        return;
+      }
+
+      // Priority 2: Try loading from Firebase images (base64)
+      if (widget.productData != null) {
+        bool firebaseLoaded = await _tryLoadFromFirebaseImages();
+        if (firebaseLoaded) {
+          print('✅ Using Firebase shoe image');
+          return;
+        }
+      }
+
+      // Priority 3: Use provided product image or fallback
+      _effectiveImagePath = widget.productImage.isNotEmpty
+          ? widget.productImage
+          : 'assets/effects/shoes/sneaker_white.png';
+      print('✅ Using fallback shoe image: $_effectiveImagePath');
+    } catch (e) {
+      print('⚠️ Error loading shoe image, using fallback: $e');
+      _effectiveImagePath = 'assets/effects/shoes/sneaker_white.png';
+    }
+  }
+
+  Future<bool> _tryLoadFromFirebaseImages() async {
+    try {
+      if (widget.productData == null) return false;
+
+      List<String> imageURLs = [];
+      if (widget.productData!['imageURLs'] != null) {
+        imageURLs = List<String>.from(widget.productData!['imageURLs']);
+      }
+
+      if (imageURLs.isEmpty) return false;
+
+      final String base64Image = imageURLs.first;
+      final bytes = base64Decode(base64Image);
+
+      // Create a temporary file to save the base64 image
+      final tempDir = Directory.systemTemp;
+      final tempFile = File(
+          '${tempDir.path}/temp_shoe_${DateTime.now().millisecondsSinceEpoch}.png');
+      await tempFile.writeAsBytes(bytes);
+
+      _effectiveImagePath = tempFile.path;
+      return true;
+    } catch (e) {
+      print('⚠️ Error loading Firebase shoe image: $e');
+      return false;
+    }
   }
 
   @override
@@ -366,7 +442,9 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
                       painter: AssetShoesPainter(
                         leftFootPosition: _leftFootPosition!,
                         rightFootPosition: _rightFootPosition!,
-                        shoeImagePath: widget.productImage,
+                        shoeImagePath: _effectiveImagePath.isNotEmpty
+                            ? _effectiveImagePath
+                            : widget.productImage,
                         shoeSize: _shoeSize,
                       ),
                     ),

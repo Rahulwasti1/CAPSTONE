@@ -6,19 +6,25 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'dart:io';
 import 'dart:developer' as developer;
 import 'dart:ui' as ui;
+import 'dart:convert';
 import 'package:capstone/screens/ar/asset_sunglasses_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:capstone/service/asset_organizer_service.dart';
 
 class ARSunglassesScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
   final String productImage;
   final String productTitle;
+  final String? productId;
+  final Map<String, dynamic>? productData;
 
   const ARSunglassesScreen({
     super.key,
     required this.cameras,
     required this.productImage,
     required this.productTitle,
+    this.productId,
+    this.productData,
   });
 
   @override
@@ -62,6 +68,33 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         _isImageLoading = true;
       });
 
+      ui.Image? loadedImage;
+
+      // Priority 1: Try organized document storage
+      loadedImage = await _tryLoadFromDocumentStorage();
+      if (loadedImage != null) {
+        setState(() {
+          _glassesImage = loadedImage;
+          _isImageLoading = false;
+        });
+        developer.log("✅ Loaded sunglasses from document storage");
+        return;
+      }
+
+      // Priority 2: Try loading from Firebase images (base64)
+      if (widget.productData != null) {
+        loadedImage = await _tryLoadFromFirebaseImages();
+        if (loadedImage != null) {
+          setState(() {
+            _glassesImage = loadedImage;
+            _isImageLoading = false;
+          });
+          developer.log("✅ Loaded sunglasses from Firebase images");
+          return;
+        }
+      }
+
+      // Priority 3: Try generic assets
       final ByteData data = await rootBundle.load(_assetImagePath);
       final Uint8List bytes = data.buffer.asUint8List();
       final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -74,7 +107,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         _isImageLoading = false;
       });
 
-      developer.log("Glasses image loaded successfully");
+      developer.log("✅ Loaded sunglasses from generic assets");
     } catch (e) {
       developer.log("Failed to load glasses image: $e");
       if (!mounted) return;
@@ -83,6 +116,67 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         _isImageLoading = false;
         _errorMessage = "Failed to load glasses image: $e";
       });
+    }
+  }
+
+  Future<ui.Image?> _tryLoadFromDocumentStorage() async {
+    try {
+      List<File> documentImages = await AssetOrganizerService.getProductImages(
+        category: 'Sunglasses',
+        productId: widget.productId ??
+            widget
+                .productTitle, // Use productId if available, fallback to title
+        productTitle: widget.productTitle,
+        selectedColor: null,
+      );
+
+      if (documentImages.isNotEmpty) {
+        developer.log(
+            '🎯 Found ${documentImages.length} organized sunglasses images');
+
+        // Try to load the first matching image
+        for (File imageFile in documentImages) {
+          try {
+            final bytes = await imageFile.readAsBytes();
+            final codec = await ui.instantiateImageCodec(bytes);
+            final frame = await codec.getNextFrame();
+            developer
+                .log('📸 Loaded organized sunglasses image: ${imageFile.path}');
+            return frame.image;
+          } catch (e) {
+            developer.log(
+                '❌ Failed to load document sunglasses image: ${imageFile.path} - $e');
+            continue;
+          }
+        }
+      }
+    } catch (e) {
+      developer.log('⚠️ Error loading sunglasses from document storage: $e');
+    }
+
+    return null;
+  }
+
+  Future<ui.Image?> _tryLoadFromFirebaseImages() async {
+    try {
+      if (widget.productData == null) return null;
+
+      List<String> imageURLs = [];
+      if (widget.productData!['imageURLs'] != null) {
+        imageURLs = List<String>.from(widget.productData!['imageURLs']);
+      }
+
+      if (imageURLs.isEmpty) return null;
+
+      final String base64Image = imageURLs.first;
+      final Uint8List bytes = base64Decode(base64Image);
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo fi = await codec.getNextFrame();
+
+      return fi.image;
+    } catch (e) {
+      developer.log("Failed to load Firebase sunglasses image: $e");
+      return null;
     }
   }
 

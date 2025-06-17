@@ -4,10 +4,12 @@ import 'package:capstone/admin/add_product/select_color.dart';
 import 'package:capstone/admin/admin_navbar.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/service/adding_product.dart';
+import 'package:capstone/service/asset_organizer_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
+import 'dart:io';
 
 class AdminAddProduct extends StatefulWidget {
   const AdminAddProduct({
@@ -164,6 +166,36 @@ class _AdminAddProductState extends State<AdminAddProduct> {
             ),
           );
           return;
+        }
+
+        // Save images to organized document folders for AR try-on
+        List<String> documentPaths = [];
+        try {
+          documentPaths = await AssetOrganizerService.saveImagesToDocuments(
+            images: selectedImages,
+            category: selectedCategory!,
+            productTitle: titleContorller.text,
+            colors: colorData,
+            productId: DateTime.now().millisecondsSinceEpoch.toString(),
+          );
+
+          if (documentPaths.isNotEmpty) {
+            print(
+                '🎉 Successfully organized ${documentPaths.length} images for AR try-on!');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    "${documentPaths.length} images organized for AR try-on!"),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.all(10),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (e) {
+          print('⚠️ Could not save images for AR try-on: $e');
+          // Continue with normal flow even if image saving fails
         }
 
         // Call addProduct method with validated data including both category types

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
@@ -7,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:capstone/service/asset_organizer_service.dart';
 import 'asset_apparel_painter.dart';
 
 class ARApparelScreen extends StatefulWidget {
@@ -14,6 +17,8 @@ class ARApparelScreen extends StatefulWidget {
   final String productImage;
   final String apparelType;
   final String? selectedColor;
+  final Map<String, dynamic>?
+      productData; // Add product data for organized assets
 
   const ARApparelScreen({
     super.key,
@@ -21,6 +26,7 @@ class ARApparelScreen extends StatefulWidget {
     required this.productImage,
     required this.apparelType,
     this.selectedColor,
+    this.productData, // Optional product data
   });
 
   @override
@@ -187,10 +193,75 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
 
   Future<ui.Image?> _tryLoadFromProductAssets() async {
     try {
-      // Build paths with selected color priority
       List<String> possiblePaths = [];
 
-      // If a color is selected, try that first
+      // Priority 1: Try organized document storage
+      try {
+        List<File> documentImages =
+            await AssetOrganizerService.getProductImages(
+          category: widget.productData?['category'] ?? 'Apparel',
+          productId: widget.productData?['id'] ?? '',
+          productTitle: widget.productName ?? '',
+          selectedColor: widget.selectedColor,
+        );
+
+        if (documentImages.isNotEmpty) {
+          print('🎯 Found ${documentImages.length} organized document images');
+
+          // Try to load the first matching image
+          for (File imageFile in documentImages) {
+            try {
+              final bytes = await imageFile.readAsBytes();
+              final codec = await ui.instantiateImageCodec(bytes);
+              final frame = await codec.getNextFrame();
+              print('✅ Loaded organized document image: ${imageFile.path}');
+              return frame.image;
+            } catch (e) {
+              print('❌ Failed to load document image: ${imageFile.path} - $e');
+              continue;
+            }
+          }
+        }
+      } catch (e) {
+        print('⚠️ Error loading from document storage: $e');
+      }
+
+      // Priority 2: Try loading from Firebase images (base64)
+      if (widget.productData != null) {
+        ui.Image? firebaseImage = await _tryLoadFromFirebaseImages();
+        if (firebaseImage != null) {
+          print('✅ Loaded apparel from Firebase images');
+          return firebaseImage;
+        }
+      }
+
+      // Priority 3: Try organized asset paths from product data (legacy)
+      if (widget.productData != null &&
+          widget.productData!['assetPaths'] != null) {
+        List<String> organizedPaths =
+            List<String>.from(widget.productData!['assetPaths']);
+
+        print(
+            '🎯 Found ${organizedPaths.length} organized asset paths (legacy)');
+
+        // Filter by selected color if available
+        if (widget.selectedColor != null && widget.selectedColor!.isNotEmpty) {
+          String colorName = widget.selectedColor!;
+
+          // Try to find asset path matching the selected color
+          for (String assetPath in organizedPaths) {
+            if (assetPath.toLowerCase().contains(colorName.toLowerCase())) {
+              possiblePaths.add(assetPath);
+              print('🎨 Color-matched organized path: $assetPath');
+            }
+          }
+        }
+
+        // Add all organized paths as fallback
+        possiblePaths.addAll(organizedPaths);
+      }
+
+      // Priority 2: Legacy product-specific paths with selected color
       if (widget.selectedColor != null && widget.selectedColor!.isNotEmpty) {
         String colorName = widget.selectedColor!;
         // Try exact format: ProductName(Color).png
@@ -207,7 +278,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         ]);
       }
 
-      // Then try default colors (Blue and Black as seen in the directory)
+      // Priority 3: Default colors (Blue and Black as seen in the directory)
       possiblePaths.addAll([
         'assets/effects/apparel/${widget.productName}(Blue).png',
         'assets/effects/apparel/${widget.productName}(Black).png',
@@ -218,7 +289,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       ]);
 
       print(
-          '🔍 Trying product asset paths (Selected Color: ${widget.selectedColor}):');
+          '🔍 Trying ${possiblePaths.length} asset paths (Selected Color: ${widget.selectedColor}):');
       for (String path in possiblePaths) {
         print('   - $path');
         try {
@@ -234,6 +305,29 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       }
       return null;
     } catch (e) {
+      return null;
+    }
+  }
+
+  Future<ui.Image?> _tryLoadFromFirebaseImages() async {
+    try {
+      if (widget.productData == null) return null;
+
+      List<String> imageURLs = [];
+      if (widget.productData!['imageURLs'] != null) {
+        imageURLs = List<String>.from(widget.productData!['imageURLs']);
+      }
+
+      if (imageURLs.isEmpty) return null;
+
+      final String base64Image = imageURLs.first;
+      final Uint8List bytes = base64Decode(base64Image);
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo fi = await codec.getNextFrame();
+
+      return fi.image;
+    } catch (e) {
+      print('⚠️ Error loading Firebase apparel image: $e');
       return null;
     }
   }
@@ -782,17 +876,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
                             icon: Icons.flip_camera_ios,
                             label: 'Switch',
                             onPressed: _switchCamera,
-                          ),
-                          _buildControlButton(
-                            icon: _showApparel
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            label: _showApparel ? 'Hide' : 'Show',
-                            onPressed: () {
-                              setState(() {
-                                _showApparel = !_showApparel;
-                              });
-                            },
                           ),
                           _buildControlButton(
                             icon: Icons.camera_alt,

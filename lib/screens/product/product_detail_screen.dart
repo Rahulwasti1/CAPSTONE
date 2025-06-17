@@ -315,6 +315,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             cameras: cameras,
             productImage: productImage,
             productTitle: productTitle,
+            productData: _currentProductData, // Pass complete product data
+            productId: productId,
           ),
         ),
       );
@@ -328,6 +330,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             productImage: productImage,
             productTitle: productTitle,
             productId: productId,
+            productData: _currentProductData, // Pass complete product data
           ),
         ),
       );
@@ -346,6 +349,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 : 'assets/images/apparel/tshirt_blue.png',
             apparelType: 'tshirt',
             selectedColor: selectedColor,
+            productData:
+                _currentProductData, // Pass product data for organized assets
           ),
         ),
       );
@@ -362,6 +367,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             productImage: productImage,
             productTitle: productTitle,
             productId: productId,
+            productData: _currentProductData, // Pass complete product data
           ),
         ),
       );
@@ -378,6 +384,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             productImage: productImage.isNotEmpty
                 ? productImage
                 : 'assets/images/shoes/sneaker_white.png',
+            productId: productId,
+            productData: _currentProductData, // Pass complete product data
           ),
         ),
       );
@@ -407,6 +415,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                 : 'assets/images/apparel/tshirt_blue.png',
             apparelType: apparelType,
             selectedColor: selectedColor,
+            productData:
+                _currentProductData, // Pass product data for organized assets
           ),
         ),
       );

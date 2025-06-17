@@ -10,12 +10,14 @@ import 'dart:async'; // For Completer
 import 'dart:convert'; // For base64Decode and json
 import 'package:capstone/screens/ar/asset_ornaments_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:capstone/service/asset_organizer_service.dart';
 
 class AROrnamentScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
   final String productImage;
   final String productTitle;
   final String productId;
+  final Map<String, dynamic>? productData;
 
   const AROrnamentScreen({
     super.key,
@@ -23,6 +25,7 @@ class AROrnamentScreen extends StatefulWidget {
     required this.productImage,
     required this.productTitle,
     required this.productId,
+    this.productData,
   });
 
   @override
@@ -183,6 +186,61 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
     developer.log(" - Product title: ${widget.productTitle}");
     developer.log(" - Product ID: ${widget.productId}");
 
+    // Priority 1: Try loading from organized document storage
+    try {
+      List<File> documentImages = await AssetOrganizerService.getProductImages(
+        category: 'Ornaments',
+        productId: widget.productId,
+        productTitle: widget.productTitle,
+        selectedColor: null,
+      );
+
+      if (documentImages.isNotEmpty) {
+        developer
+            .log('🎯 Found ${documentImages.length} organized ornament images');
+
+        // Try to load the first matching image
+        for (File imageFile in documentImages) {
+          try {
+            final bytes = await imageFile.readAsBytes();
+            final codec = await ui.instantiateImageCodec(bytes);
+            final frame = await codec.getNextFrame();
+
+            if (mounted) {
+              setState(() {
+                _ornamentImage = frame.image;
+              });
+            }
+
+            developer.log(
+                '✅ Loaded organized document ornament image: ${imageFile.path}');
+            return;
+          } catch (e) {
+            developer.log(
+                '❌ Failed to load document ornament image: ${imageFile.path} - $e');
+            continue;
+          }
+        }
+      }
+    } catch (e) {
+      developer.log('⚠️ Error loading from document storage: $e');
+    }
+
+    // Priority 2: Try loading from Firebase images (base64)
+    if (widget.productData != null) {
+      ui.Image? firebaseImage = await _tryLoadFromFirebaseImages();
+      if (firebaseImage != null) {
+        if (mounted) {
+          setState(() {
+            _ornamentImage = firebaseImage;
+          });
+        }
+        developer.log("✅ Loaded ornament from Firebase images");
+        return;
+      }
+    }
+
+    // Priority 3: Try loading from asset storage (existing logic)
     // Declare lowerTitle at the top for use throughout the method
     final String lowerTitle = widget.productTitle.toLowerCase();
 
@@ -248,6 +306,29 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
     // If we get here and tried all paths, throw descriptive error
     throw Exception(
         "Failed to load any ornament image. Tried paths: ${failedPaths.join(', ')}");
+  }
+
+  Future<ui.Image?> _tryLoadFromFirebaseImages() async {
+    try {
+      if (widget.productData == null) return null;
+
+      List<String> imageURLs = [];
+      if (widget.productData!['imageURLs'] != null) {
+        imageURLs = List<String>.from(widget.productData!['imageURLs']);
+      }
+
+      if (imageURLs.isEmpty) return null;
+
+      final String base64Image = imageURLs.first;
+      final Uint8List bytes = base64Decode(base64Image);
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo fi = await codec.getNextFrame();
+
+      return fi.image;
+    } catch (e) {
+      developer.log("Failed to load Firebase ornament image: $e");
+      return null;
+    }
   }
 
   void _initializeFaceDetector() {

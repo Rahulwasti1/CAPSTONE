@@ -6,10 +6,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:capstone/service/asset_organizer_service.dart';
 
 class AddingProduct {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Category to asset folder mapping
+  final Map<String, String> categoryAssetPaths = {
+    'Apparel': 'assets/effects/apparel/',
+    'Shoes': 'assets/effects/shoes/',
+    'Watches': 'assets/effects/watches/',
+    'Ornaments': 'assets/effects/ornaments/',
+    'Sunglasses': 'assets/effects/sunglasses/',
+  };
 
   // Method to add product to Firestore
   // Future<String> addProduct({
@@ -122,12 +135,27 @@ class AddingProduct {
         return "Error: At least one image is required";
       }
 
-      // Process all images - not just the first one
+      // Organize images into category-specific asset folders
+      print("📁 Organizing ${images.length} images for category: $category");
+
+      List<String> organizedImagePaths =
+          await AssetOrganizerService.saveImagesToDocuments(
+        images: images,
+        category: category,
+        productTitle: title,
+        colors: color,
+        productId: DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+
+      if (organizedImagePaths.isEmpty) {
+        return "Error: Could not organize any images. Please try again.";
+      }
+
+      // Also process images for base64 storage as fallback
       List<String> imageBase64List = [];
+      print("Processing ${images.length} images for base64 storage...");
 
-      print("Processing ${images.length} images...");
-
-      // Process each image individually
+      // Process each image individually for base64 fallback
       for (int i = 0; i < images.length; i++) {
         try {
           print("Processing image ${i + 1}/${images.length}");
@@ -174,10 +202,6 @@ class AddingProduct {
 
       print("Successfully processed ${imageBase64List.length} images in total");
 
-      if (imageBase64List.isEmpty) {
-        return "Error: Could not process any images. Please try with smaller images.";
-      }
-
       // Handle sizes properly based on input type
       List<String> sizesList;
       if (size is List) {
@@ -195,7 +219,7 @@ class AddingProduct {
         sizesList = [];
       }
 
-      // Product data with all processed images and gender category
+      // Product data with organized asset paths and base64 fallback
       final Map<String, dynamic> productData = {
         'title': title,
         'description': description,
@@ -204,7 +228,9 @@ class AddingProduct {
         'category': category,
         'genderCategory': genderCategory, // Add gender category
         'price': price,
-        'imageURLs': imageBase64List, // Store ALL processed images
+        'imageURLs': imageBase64List, // Store base64 images as fallback
+        'assetPaths':
+            organizedImagePaths, // Store organized asset paths for AR try-on
         'addedByAdmin': Timestamp.now(),
       };
 
@@ -251,6 +277,113 @@ class AddingProduct {
     } catch (e) {
       print("Error converting image: $e");
       return ""; // Return empty string instead of throwing
+    }
+  }
+
+  // Method to organize and save images to category-specific asset folders
+  Future<List<String>> organizeProductImages({
+    required List<XFile> images,
+    required String category,
+    required String productTitle,
+    required List<String> colors,
+  }) async {
+    List<String> organizedImagePaths = [];
+
+    try {
+      // Get the asset folder path for the category
+      String assetFolderPath =
+          categoryAssetPaths[category] ?? 'assets/effects/general/';
+
+      // Create a clean product name for file naming
+      String cleanProductName = _cleanProductName(productTitle);
+
+      // Process each image
+      for (int i = 0; i < images.length; i++) {
+        try {
+          // Read image bytes
+          final Uint8List imageBytes = await images[i].readAsBytes();
+
+          // Resize and compress the image
+          final Uint8List processedImageBytes =
+              await _resizeAndCompressImage(imageBytes);
+
+          // Generate filename based on product and color
+          String filename;
+          if (colors.isNotEmpty && i < colors.length) {
+            // Map color code to color name for filename
+            String colorName = _getColorNameFromCode(colors[i]);
+            filename = '${cleanProductName}($colorName).png';
+          } else {
+            filename = '${cleanProductName}_${i + 1}.png';
+          }
+
+          // Create the full asset path
+          String fullAssetPath = '$assetFolderPath$filename';
+
+          // Save the image to the asset folder (in a real app, this would be done during build)
+          // For now, we'll store the path and the base64 data
+          String base64Image = base64Encode(processedImageBytes);
+
+          // Store both the asset path and base64 for fallback
+          organizedImagePaths.add(fullAssetPath);
+
+          // Log the organization
+          print('📁 Organized image: $fullAssetPath');
+        } catch (e) {
+          print('❌ Error processing image ${i + 1}: $e');
+          continue;
+        }
+      }
+
+      print(
+          '✅ Successfully organized ${organizedImagePaths.length} images for category: $category');
+      return organizedImagePaths;
+    } catch (e) {
+      print('❌ Error organizing images: $e');
+      return [];
+    }
+  }
+
+  // Helper method to clean product name for file naming
+  String _cleanProductName(String productTitle) {
+    return productTitle
+        .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '') // Remove special characters
+        .replaceAll(RegExp(r'\s+'), '') // Remove spaces
+        .trim();
+  }
+
+  // Helper method to get color name from color code
+  String _getColorNameFromCode(String colorCode) {
+    final Map<String, String> colorMap = {
+      '4278190080': 'Black',
+      '4294967295': 'White',
+      '4294198070': 'Blue',
+      '4280391411': 'Blue',
+      '4294901760': 'Red',
+      '4278255360': 'Green',
+      '4294934352': 'Yellow',
+      '4294902015': 'Pink',
+      '4289797371': 'Purple',
+      '4294945600': 'Orange',
+      '4286611584': 'Brown',
+      '4288585374': 'Grey',
+      '4278255615': 'Cyan',
+    };
+
+    return colorMap[colorCode] ?? 'Default';
+  }
+
+  // Method to create asset directory structure (for development purposes)
+  Future<void> createAssetDirectoryStructure() async {
+    try {
+      // This would typically be done during app build/development
+      // For now, we'll just log the structure that should be created
+      print('📂 Asset directory structure:');
+      categoryAssetPaths.forEach((category, path) {
+        print('   $category: $path');
+      });
+    } catch (e) {
+      print('❌ Error creating asset directory structure: $e');
     }
   }
 }
