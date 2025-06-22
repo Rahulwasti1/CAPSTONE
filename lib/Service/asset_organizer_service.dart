@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:convert';
 
 class AssetOrganizerService {
   // Category to asset folder mapping

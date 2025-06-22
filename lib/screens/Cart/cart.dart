@@ -33,7 +33,6 @@ class UserCart extends StatelessWidget {
 
   Widget _buildCartContent(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
-    final theme = Theme.of(context);
 
     // Get items as a list from the map
     final List<CartItem> cartItems = cartProvider.items.values.toList();

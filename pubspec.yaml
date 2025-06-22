@@ -95,11 +95,9 @@ flutter:
     - assets/images/apparel/
     - assets/models/sunglasses/
     - assets/effects/glasses/
-    - assets/effects/ornament/
     - assets/effects/ornaments/
     - assets/effects/apparel/
     - assets/effects/shoes/
-    - assets/effects/sunglasses/
     - assets/effects/debug/
     - assets/effects/watches/
 

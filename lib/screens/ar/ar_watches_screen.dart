@@ -230,7 +230,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
       );
 
       if (documentImages.isNotEmpty) {
-        print('🎯 Found ${documentImages.length} organized watch images');
 
         // Try to load the first matching image
         for (File imageFile in documentImages) {
@@ -238,7 +237,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
             final bytes = await imageFile.readAsBytes();
             final codec = await ui.instantiateImageCodec(bytes);
             final frame = await codec.getNextFrame();
-            print('✅ Loaded organized document watch image: ${imageFile.path}');
             return frame.image;
           } catch (e) {
             print(
@@ -248,7 +246,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
         }
       }
     } catch (e) {
-      print('⚠️ Error loading from document storage: $e');
     }
 
     return null;

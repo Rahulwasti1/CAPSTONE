@@ -78,30 +78,7 @@ class WatchOverlayPainter extends CustomPainter {
 
     canvas.restore();
 
-    // ✅ DEBUG: Show wrist position with a small circle for debugging
-    final debugPaint = Paint()
-      ..color = Colors.red
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawCircle(screenPos, 10.0, debugPaint);
-
-    // Also draw a smaller filled circle
-    final debugFillPaint = Paint()
-      ..color = Colors.red.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(screenPos, 5.0, debugFillPaint);
-
-    print("🎨 WATCH RENDERED:");
-    print(
-        "   Screen Position: (${screenPos.dx.toInt()}, ${screenPos.dy.toInt()})");
-    print(
-        "   Adjusted Position: (${adjustedPos.dx.toInt()}, ${adjustedPos.dy.toInt()})");
-    print("   Watch Size: ${finalWatchSize.toInt()}px");
-    print("   Scale: ${scale.toStringAsFixed(2)}x");
-    print("   Rotation: ${(rotation * 180 / math.pi).toStringAsFixed(1)}°");
-    print("   Confidence: ${(confidence * 100).toInt()}%");
+    // Debug overlays removed for production
   }
 
   /// ✅ IMPROVED coordinate conversion from camera to screen
@@ -135,16 +112,7 @@ class WatchOverlayPainter extends CustomPainter {
       screenX = screenSize.width - screenX;
     }
 
-    print("📐 COORDINATE CONVERSION:");
-    print(
-        "   Camera Size: ${cameraSize.width.toInt()}x${cameraSize.height.toInt()}");
-    print(
-        "   Screen Size: ${screenSize.width.toInt()}x${screenSize.height.toInt()}");
-    print("   Scale Factor: ${scale.toStringAsFixed(3)}");
-    print(
-        "   Camera Wrist: (${wristPosition.dx.toInt()}, ${wristPosition.dy.toInt()})");
-    print("   Screen Wrist: (${screenX.toInt()}, ${screenY.toInt()})");
-    print("   Front Camera: $isFrontCamera");
+    // Debug prints removed for production
 
     return Offset(screenX, screenY);
   }
@@ -227,7 +195,6 @@ class DefaultWatchPainter extends CustomPainter {
 
     canvas.restore();
 
-    print("🎨 DEFAULT WATCH RENDERED:");
     print(
         "   Position: (${adjustedPosition.dx.toInt()}, ${adjustedPosition.dy.toInt()})");
     print("   Size: ${finalWatchSize.toInt()}px");
@@ -298,7 +265,6 @@ class SimpleWatchPainter extends CustomPainter {
     // ✅ Draw the watch at the fixed position
     canvas.drawImageRect(watchImage, srcRect, watchRect, paint);
 
-    print("🎨 SIMPLE WATCH RENDERED:");
     print(
         "   Position: (${basePosition.dx.toInt()}, ${basePosition.dy.toInt()})");
     print("   Size: ${finalWatchWidth.toInt()}x${finalWatchHeight.toInt()}px");
@@ -368,7 +334,6 @@ class WristWatchPainter extends CustomPainter {
     // ✅ Draw the watch at the detected wrist position
     canvas.drawImageRect(watchImage, srcRect, watchRect, paint);
 
-    print("🎨 WRIST WATCH RENDERED:");
     print(
         "   Adjusted Position: (${adjustedWristPosition.dx.toInt()}, ${adjustedWristPosition.dy.toInt()})");
     print("   Size: ${finalWatchWidth.toInt()}x${finalWatchHeight.toInt()}px");
@@ -416,7 +381,6 @@ class WristWatchPainter extends CustomPainter {
         screenSize.height * 0.02; // 2% of screen height above wrist center
     screenY -= wristOffset;
 
-    print("📐 IMPROVED COORDINATE CONVERSION:");
     print(
         "   Camera Size: ${cameraSize.width.toInt()}x${cameraSize.height.toInt()}");
     print(

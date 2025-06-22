@@ -2,17 +2,14 @@ import 'dart:convert'; // For base64 encoding
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
+
 import 'package:capstone/service/asset_organizer_service.dart';
 
 class AddingProduct {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Category to asset folder mapping
@@ -116,8 +113,6 @@ class AddingProduct {
     required double price,
     required List<XFile> images, // Pass images as List<XFile>
   }) async {
-    String res = "Some error occurred";
-
     try {
       // Basic input validation
       if (title.isEmpty ||
@@ -269,17 +264,6 @@ class AddingProduct {
     }
   }
 
-  // Simplified image conversion that won't throw errors
-  Future<String> _convertImageToBase64(XFile image) async {
-    try {
-      final bytes = await image.readAsBytes();
-      return base64Encode(bytes);
-    } catch (e) {
-      print("Error converting image: $e");
-      return ""; // Return empty string instead of throwing
-    }
-  }
-
   // Method to organize and save images to category-specific asset folders
   Future<List<String>> organizeProductImages({
     required List<XFile> images,
@@ -303,9 +287,8 @@ class AddingProduct {
           // Read image bytes
           final Uint8List imageBytes = await images[i].readAsBytes();
 
-          // Resize and compress the image
-          final Uint8List processedImageBytes =
-              await _resizeAndCompressImage(imageBytes);
+          // Resize and compress the image (for optimization)
+          await _resizeAndCompressImage(imageBytes);
 
           // Generate filename based on product and color
           String filename;
@@ -320,11 +303,7 @@ class AddingProduct {
           // Create the full asset path
           String fullAssetPath = '$assetFolderPath$filename';
 
-          // Save the image to the asset folder (in a real app, this would be done during build)
-          // For now, we'll store the path and the base64 data
-          String base64Image = base64Encode(processedImageBytes);
-
-          // Store both the asset path and base64 for fallback
+          // Store the asset path for AR try-on
           organizedImagePaths.add(fullAssetPath);
 
           // Log the organization

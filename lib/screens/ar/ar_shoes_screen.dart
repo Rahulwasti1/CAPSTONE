@@ -82,9 +82,7 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
       );
 
       if (documentImages.isNotEmpty) {
-        print('🎯 Found ${documentImages.length} organized shoe images');
         _effectiveImagePath = documentImages.first.path;
-        print('✅ Using organized shoe image: $_effectiveImagePath');
         return;
       }
 
@@ -92,19 +90,37 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
       if (widget.productData != null) {
         bool firebaseLoaded = await _tryLoadFromFirebaseImages();
         if (firebaseLoaded) {
-          print('✅ Using Firebase shoe image');
           return;
         }
       }
 
-      // Priority 3: Use provided product image or fallback
-      _effectiveImagePath = widget.productImage.isNotEmpty
-          ? widget.productImage
-          : 'assets/effects/shoes/sneaker_white.png';
-      print('✅ Using fallback shoe image: $_effectiveImagePath');
+      // Priority 3: Use smart shoe selection from assets/effects/shoes/
+      _effectiveImagePath = _selectBestShoeAsset();
     } catch (e) {
-      print('⚠️ Error loading shoe image, using fallback: $e');
-      _effectiveImagePath = 'assets/effects/shoes/sneaker_white.png';
+      _effectiveImagePath = 'assets/effects/shoes/Black.png';
+    }
+  }
+
+  String _selectBestShoeAsset() {
+    final String productTitle = widget.productName.toLowerCase();
+
+    // Available shoe assets in assets/effects/shoes/
+    final Map<String, String> availableShoes = {
+      'Black.png': 'assets/effects/shoes/Black.png',
+      'Purple.png': 'assets/effects/shoes/Purple.png',
+    };
+
+    // Smart matching logic
+    if (productTitle.contains('black') || productTitle.contains('dark')) {
+      return availableShoes['Black.png']!;
+    } else if (productTitle.contains('purple') ||
+        productTitle.contains('violet')) {
+      return availableShoes['Purple.png']!;
+    } else {
+      // Default selection - use hash for variety
+      final List<String> shoeOptions = availableShoes.values.toList();
+      final int index = productTitle.hashCode.abs() % shoeOptions.length;
+      return shoeOptions[index];
     }
   }
 
@@ -131,7 +147,6 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
       _effectiveImagePath = tempFile.path;
       return true;
     } catch (e) {
-      print('⚠️ Error loading Firebase shoe image: $e');
       return false;
     }
   }

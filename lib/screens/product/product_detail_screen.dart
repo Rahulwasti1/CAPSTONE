@@ -1269,7 +1269,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       '4286611584': 'Brown',
       '4288585374': 'Grey',
       '4278255615': 'Cyan',
-      '4294902015': 'Magenta',
+      '4294967040': 'Magenta',
     };
 
     return colorMap[colorCode] ?? 'Color';

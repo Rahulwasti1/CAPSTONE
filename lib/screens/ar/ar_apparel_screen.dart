@@ -112,9 +112,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
     for (String path in knownFiles) {
       try {
         final ByteData data = await rootBundle.load(path);
-        print('✅ Can load: $path (${data.lengthInBytes} bytes)');
       } catch (e) {
-        print('❌ Cannot load: $path - $e');
       }
     }
   }
@@ -144,7 +142,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
           _effectiveImagePath = 'product_asset';
           _isImageReady = true;
         });
-        print('✅ Loaded apparel from product assets');
         return;
       }
 
@@ -159,7 +156,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
             _effectiveImagePath = widget.productImage;
             _isImageReady = true;
           });
-          print('✅ Loaded apparel from network');
           return;
         }
       }
@@ -172,7 +168,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
           _effectiveImagePath = 'generic_asset';
           _isImageReady = true;
         });
-        print('✅ Loaded generic apparel asset');
         return;
       }
 
@@ -181,9 +176,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       setState(() {
         _isImageReady = true;
       });
-      print('⚠️ Using placeholder image');
     } catch (e) {
-      print('❌ Apparel image loading failed: $e');
       await _createPlaceholderImage();
       setState(() {
         _isImageReady = true;
@@ -206,7 +199,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         );
 
         if (documentImages.isNotEmpty) {
-          print('🎯 Found ${documentImages.length} organized document images');
 
           // Try to load the first matching image
           for (File imageFile in documentImages) {
@@ -214,23 +206,19 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
               final bytes = await imageFile.readAsBytes();
               final codec = await ui.instantiateImageCodec(bytes);
               final frame = await codec.getNextFrame();
-              print('✅ Loaded organized document image: ${imageFile.path}');
               return frame.image;
             } catch (e) {
-              print('❌ Failed to load document image: ${imageFile.path} - $e');
               continue;
             }
           }
         }
       } catch (e) {
-        print('⚠️ Error loading from document storage: $e');
       }
 
       // Priority 2: Try loading from Firebase images (base64)
       if (widget.productData != null) {
         ui.Image? firebaseImage = await _tryLoadFromFirebaseImages();
         if (firebaseImage != null) {
-          print('✅ Loaded apparel from Firebase images');
           return firebaseImage;
         }
       }
@@ -252,7 +240,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
           for (String assetPath in organizedPaths) {
             if (assetPath.toLowerCase().contains(colorName.toLowerCase())) {
               possiblePaths.add(assetPath);
-              print('🎨 Color-matched organized path: $assetPath');
             }
           }
         }
@@ -297,7 +284,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
           final Uint8List bytes = data.buffer.asUint8List();
           final ui.Codec codec = await ui.instantiateImageCodec(bytes);
           final ui.FrameInfo fi = await codec.getNextFrame();
-          print('✅ Found: $path');
           return fi.image;
         } catch (e) {
           // Continue to next path
@@ -327,7 +313,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
 
       return fi.image;
     } catch (e) {
-      print('⚠️ Error loading Firebase apparel image: $e');
       return null;
     }
   }
@@ -347,7 +332,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       }
       return null;
     } catch (e) {
-      print('❌ Network loading failed: $e');
       return null;
     }
   }
@@ -361,7 +345,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         'assets/images/apparel/tshirt_blue.png',
       ];
 
-      print('🔍 Trying generic asset paths:');
       for (String path in genericPaths) {
         print('   - $path');
         try {
@@ -369,7 +352,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
           final Uint8List bytes = data.buffer.asUint8List();
           final ui.Codec codec = await ui.instantiateImageCodec(bytes);
           final ui.FrameInfo fi = await codec.getNextFrame();
-          print('✅ Found: $path');
           return fi.image;
         } catch (e) {
           // Continue to next path
@@ -398,7 +380,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         _effectiveImagePath = 'placeholder';
       });
     } catch (e) {
-      print('❌ Failed to create placeholder: $e');
     }
   }
 

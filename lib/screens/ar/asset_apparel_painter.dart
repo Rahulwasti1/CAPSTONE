@@ -26,7 +26,6 @@ class AssetApparelPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Only print debug info occasionally to avoid spam
     if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-      print('🎨 APPAREL PAINTER DEBUG:');
       print(
           '   Preloaded Image: ${preloadedImage != null ? "Available (${preloadedImage!.width}x${preloadedImage!.height})" : "NULL"}');
       print('   Apparel Image Path: $apparelImagePath');
@@ -39,7 +38,6 @@ class AssetApparelPainter extends CustomPainter {
     // Use pre-loaded image if available, otherwise show minimal placeholder
     if (preloadedImage != null) {
       if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-        print('✅ Drawing apparel with preloaded image');
       }
       // Calculate apparel dimensions based on torso size and type
       final apparelDimensions = _calculateApparelDimensions();
@@ -53,7 +51,6 @@ class AssetApparelPainter extends CustomPainter {
       );
     } else {
       if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-        print('❌ No preloaded image - showing placeholder');
       }
       // Show minimal placeholder only if no image is available
       _drawMinimalPlaceholder(canvas);

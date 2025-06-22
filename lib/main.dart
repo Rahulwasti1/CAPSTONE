@@ -12,11 +12,17 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Disable all debug overlays for production
+  if (kDebugMode) {
+    debugPaintSizeEnabled = false;
+  }
 
   FlutterError.onError = (FlutterErrorDetails details) {
     if (details.exception is PlatformException) {
@@ -68,6 +74,9 @@ class MyApp extends StatelessWidget {
             builder: (context, themeProvider, child) {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
+                showPerformanceOverlay: false,
+                showSemanticsDebugger: false,
+                debugShowMaterialGrid: false,
                 title: 'AR Fashion',
                 theme: themeProvider.lightTheme,
                 darkTheme: themeProvider.darkTheme,

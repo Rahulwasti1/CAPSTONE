@@ -1,0 +1,34 @@
+warning • Unused import: 'dart:io' • lib/admin/add_product/add_product.dart:12:8 • unused_import
+warning • The value of the field '_leftShoulder' isn't used • lib/screens/ar/ar_apparel_screen.dart:48:11 • unused_field
+warning • The value of the field '_rightShoulder' isn't used • lib/screens/ar/ar_apparel_screen.dart:49:11 • unused_field
+warning • The value of the field '_cameraImageSize' isn't used • lib/screens/ar/ar_apparel_screen.dart:53:9 • unused_field
+warning • The left operand can't be null, so the right operand is never executed • lib/screens/ar/ar_apparel_screen.dart:204:47 • dead_null_aware_expression
+warning • The declaration '_loadProductImage' isn't referenced • lib/screens/ar/ar_apparel_screen.dart:405:16 • unused_element
+warning • The declaration '_loadFallbackImage' isn't referenced • lib/screens/ar/ar_apparel_screen.dart:410:16 • unused_element
+warning • The declaration '_loadProductImageInBackground' isn't referenced • lib/screens/ar/ar_apparel_screen.dart:414:8 • unused_element
+warning • The value of the field '_isInitializing' isn't used • lib/screens/ar/ar_ornaments_screen.dart:44:8 • unused_field
+warning • The value of the field '_isImageLoading' isn't used • lib/screens/ar/ar_ornaments_screen.dart:48:8 • unused_field
+warning • The value of the field '_cameraImageSize' isn't used • lib/screens/ar/ar_shoes_screen.dart:52:8 • unused_field
+warning • The value of the field '_minConfidence' isn't used • lib/screens/ar/ar_shoes_screen.dart:74:23 • unused_field
+warning • The declaration '_selectBestShoeAsset' isn't referenced • lib/screens/ar/ar_shoes_screen.dart:197:11 • unused_element
+warning • The value of the local variable 'leftConfidence' isn't used • lib/screens/ar/ar_shoes_screen.dart:474:12 • unused_local_variable
+warning • The value of the local variable 'rightConfidence' isn't used • lib/screens/ar/ar_shoes_screen.dart:475:12 • unused_local_variable
+warning • The value of the field '_isInitializing' isn't used • lib/screens/ar/ar_sunglasses_screen.dart:43:8 • unused_field
+warning • The value of the field '_isImageLoading' isn't used • lib/screens/ar/ar_sunglasses_screen.dart:48:8 • unused_field
+warning • The value of the field '_isInitializing' isn't used • lib/screens/ar/ar_tshirt_screen.dart:42:8 • unused_field
+warning • The value of the field '_isImageLoading' isn't used • lib/screens/ar/ar_tshirt_screen.dart:46:8 • unused_field
+warning • The value of the field '_isInitializing' isn't used • lib/screens/ar/ar_watches_screen.dart:39:8 • unused_field
+warning • The value of the field '_isImageLoading' isn't used • lib/screens/ar/ar_watches_screen.dart:43:8 • unused_field
+warning • The value of the field '_cameraActive' isn't used • lib/screens/ar/ar_watches_screen.dart:46:8 • unused_field
+warning • The declaration '_buildControlButton' isn't referenced • lib/screens/ar/ar_watches_screen.dart:731:10 • unused_element
+warning • The declaration '_drawWatchShape' isn't referenced • lib/screens/ar/asset_watches_painter.dart:375:8 • unused_element
+warning • The value of the local variable 'theme' isn't used • lib/screens/cart/cart.dart:36:11 • unused_local_variable
+warning • Two keys in a map literal shouldn't be equal • lib/screens/product/product_detail_screen.dart:1272:7 • equal_keys_in_map
+warning • Unused import: 'dart:io' • lib/service/adding_product.dart:9:8 • unused_import
+warning • Unused import: 'package:path_provider/path_provider.dart' • lib/service/adding_product.dart:10:8 • unused_import
+warning • Unused import: 'package:path/path.dart' • lib/service/adding_product.dart:11:8 • unused_import
+warning • The value of the field '_auth' isn't used • lib/service/adding_product.dart:15:22 • unused_field
+warning • The value of the local variable 'res' isn't used • lib/service/adding_product.dart:119:12 • unused_local_variable
+warning • The declaration '_convertImageToBase64' isn't referenced • lib/service/adding_product.dart:273:18 • unused_element
+warning • The value of the local variable 'base64Image' isn't used • lib/service/adding_product.dart:325:18 • unused_local_variable
+warning • Unused import: 'dart:convert' • lib/service/asset_organizer_service.dart:6:8 • unused_import

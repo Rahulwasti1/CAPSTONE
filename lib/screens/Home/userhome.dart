@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/screens/product/product_detail_screen.dart';
 import 'package:capstone/screens/categories/categories.dart';
@@ -26,68 +25,13 @@ class _UserhomeState extends State<Userhome> {
   List<Map<String, dynamic>> _flashSaleProducts = [];
   bool _isLoading = true;
 
-  // Timer variables
-  Timer? _timer;
-  Duration _flashSaleTimeLeft = Duration(hours: 12, minutes: 30, seconds: 45);
-  String _currentTimeString = "";
+  // Static flash sale time display (no longer counting down)
+  final String _currentTimeString = "12:30:45"; // Fixed display time
 
   @override
   void initState() {
     super.initState();
-    _currentTimeString = _formatDuration(_flashSaleTimeLeft);
     _fetchFlashSaleProducts();
-    _startFlashSaleTimer();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _startFlashSaleTimer() {
-    // Update the initial time string
-    _currentTimeString = _formatDuration(_flashSaleTimeLeft);
-
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-
-      // Calculate new time
-      Duration newTime;
-      if (_flashSaleTimeLeft.inSeconds > 0) {
-        newTime = _flashSaleTimeLeft - Duration(seconds: 1);
-      } else {
-        // Reset timer when it reaches zero (24 hour cycle)
-        newTime = Duration(hours: 24);
-      }
-
-      // Format the new time
-      String newTimeString = _formatDuration(newTime);
-
-      // Only update if the display string actually changed
-      if (_currentTimeString != newTimeString) {
-        _flashSaleTimeLeft = newTime;
-        _currentTimeString = newTimeString;
-
-        // Use a microtask to avoid rebuilding during build
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {});
-          }
-        });
-      } else {
-        // Update time silently without UI rebuild
-        _flashSaleTimeLeft = newTime;
-      }
-    });
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String hours = twoDigits(duration.inHours);
-    String minutes = twoDigits(duration.inMinutes.remainder(60));
-    String seconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$hours:$minutes:$seconds";
   }
 
   Future<void> _fetchFlashSaleProducts() async {
