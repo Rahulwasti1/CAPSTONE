@@ -38,19 +38,10 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
   List<CameraDescription> _cameras = [];
   bool _isCameraInitialized = false;
   bool _isDetecting = false;
-  int _selectedCameraIndex = 0;
+  int _selectedCameraIndex = 1; // Start with back camera (index 1)
 
   // Pose Detection
   PoseDetector? _poseDetector;
-
-  // Body positions for apparel placement
-  Offset? _shoulderCenter;
-  Offset? _leftShoulder;
-  Offset? _rightShoulder;
-  Offset? _torsoCenter;
-  double _torsoWidth = 0;
-  double _torsoHeight = 0;
-  Size? _cameraImageSize;
 
   // Detection timing
   int _lastDetectionTime = 0;
@@ -72,11 +63,16 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
   bool _isImageReady = false;
   String _effectiveImagePath = '';
 
+  // Body positions for apparel placement
+  Offset? _torsoCenter;
+  double _torsoWidth = 0;
+  double _torsoHeight = 0;
+
   @override
   void initState() {
     super.initState();
     _initializePoseDetector();
-    _preloadApparelImage(); // Pre-load image immediately
+    _preloadApparelImage();
     _initializeCamera();
   }
 
@@ -102,35 +98,11 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
     }
   }
 
-  Future<void> _testKnownFiles() async {
-    print('🧪 TESTING KNOWN APPAREL FILES:');
-    List<String> knownFiles = [
-      'assets/effects/apparel/RegularFit(Black).png',
-      'assets/effects/apparel/RegularFit(Blue).png',
-    ];
-
-    for (String path in knownFiles) {
-      try {
-        final ByteData data = await rootBundle.load(path);
-      } catch (e) {
-      }
-    }
-  }
-
   Future<void> _preloadApparelImage() async {
     try {
       setState(() {
         _isImageReady = false;
       });
-
-      print('🔥 LOADING APPAREL IMAGE');
-      print('Product: "${widget.productName}"');
-      print('Product Image: "${widget.productImage}"');
-      print('Apparel Type: "${widget.apparelType}"');
-      print('Selected Color: "${widget.selectedColor}"');
-
-      // Test known files first
-      await _testKnownFiles();
 
       ui.Image? loadedImage;
 
@@ -199,7 +171,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         );
 
         if (documentImages.isNotEmpty) {
-
           // Try to load the first matching image
           for (File imageFile in documentImages) {
             try {
@@ -212,8 +183,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
             }
           }
         }
-      } catch (e) {
-      }
+      } catch (e) {}
 
       // Priority 2: Try loading from Firebase images (base64)
       if (widget.productData != null) {
@@ -229,8 +199,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         List<String> organizedPaths =
             List<String>.from(widget.productData!['assetPaths']);
 
-        print(
-            '🎯 Found ${organizedPaths.length} organized asset paths (legacy)');
+        // Found organized asset paths (legacy)
 
         // Filter by selected color if available
         if (widget.selectedColor != null && widget.selectedColor!.isNotEmpty) {
@@ -275,10 +244,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         'assets/effects/apparel/${widget.productName.replaceAll(' ', '')}.png',
       ]);
 
-      print(
-          '🔍 Trying ${possiblePaths.length} asset paths (Selected Color: ${widget.selectedColor}):');
       for (String path in possiblePaths) {
-        print('   - $path');
         try {
           final ByteData data = await rootBundle.load(path);
           final Uint8List bytes = data.buffer.asUint8List();
@@ -319,7 +285,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
 
   Future<ui.Image?> _tryLoadFromNetwork() async {
     try {
-      print('📡 Loading from network: ${widget.productImage}');
       final response = await http
           .get(Uri.parse(widget.productImage))
           .timeout(const Duration(seconds: 5));
@@ -346,7 +311,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       ];
 
       for (String path in genericPaths) {
-        print('   - $path');
         try {
           final ByteData data = await rootBundle.load(path);
           final Uint8List bytes = data.buffer.asUint8List();
@@ -368,7 +332,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       // Create a simple colored rectangle as placeholder
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      final paint = Paint()..color = Colors.blue.withOpacity(0.7);
+      final paint = Paint()..color = Colors.blue.withValues(alpha: 179);
 
       canvas.drawRect(const Rect.fromLTWH(0, 0, 200, 200), paint);
 
@@ -379,21 +343,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         _preloadedImage = image;
         _effectiveImagePath = 'placeholder';
       });
-    } catch (e) {
-    }
-  }
-
-  Future<bool> _loadProductImage() async {
-    // This method is no longer needed - keeping for compatibility
-    return false;
-  }
-
-  Future<void> _loadFallbackImage() async {
-    // This method is no longer needed - keeping for compatibility
-  }
-
-  void _loadProductImageInBackground() async {
-    // This method is no longer needed - keeping for compatibility
+    } catch (e) {}
   }
 
   Future<void> _initializeCamera() async {
@@ -515,10 +465,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
     if (poses.isEmpty) {
       setState(() {
         _detectionStatus = 'No person detected - step into view';
-        _shoulderCenter = null;
-        _leftShoulder = null;
-        _rightShoulder = null;
-        _torsoCenter = null;
       });
       return;
     }
@@ -606,14 +552,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
     _updatePositionHistory(torsoCenter, torsoWidth, torsoHeight);
 
     setState(() {
-      _leftShoulder = leftShoulderScreen;
-      _rightShoulder = rightShoulderScreen;
-      _shoulderCenter = shoulderCenter;
-      _torsoCenter = _getSmoothedPosition(_recentTorsoPositions);
-      _torsoWidth = _getSmoothedWidth(_recentTorsoWidths);
-      _torsoHeight = _getSmoothedHeight(_recentTorsoHeights);
       _detectionStatus = 'Body detected - AR apparel active';
-      _cameraImageSize = Size(imageWidth.toDouble(), imageHeight.toDouble());
     });
   }
 
@@ -649,30 +588,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       _recentTorsoWidths.removeAt(0);
       _recentTorsoHeights.removeAt(0);
     }
-  }
-
-  Offset _getSmoothedPosition(List<Offset> positions) {
-    if (positions.isEmpty) return Offset.zero;
-
-    double totalX = 0;
-    double totalY = 0;
-
-    for (final pos in positions) {
-      totalX += pos.dx;
-      totalY += pos.dy;
-    }
-
-    return Offset(totalX / positions.length, totalY / positions.length);
-  }
-
-  double _getSmoothedWidth(List<double> widths) {
-    if (widths.isEmpty) return 0;
-    return widths.reduce((a, b) => a + b) / widths.length;
-  }
-
-  double _getSmoothedHeight(List<double> heights) {
-    if (heights.isEmpty) return 0;
-    return heights.reduce((a, b) => a + b) / heights.length;
   }
 
   Future<void> _switchCamera() async {
@@ -756,7 +671,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
                         apparelSize: _apparelSize,
                         apparelType: widget.apparelType,
                         preloadedImage: _preloadedImage,
-                        shoulderCenter: _shoulderCenter,
                       ),
                     ),
                   ),
@@ -769,7 +683,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
+                      color: Colors.black.withValues(alpha: 179),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(

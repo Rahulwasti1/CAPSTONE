@@ -4,12 +4,12 @@ import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'dart:io';
-import 'dart:developer' as developer;
 import 'dart:ui' as ui;
-import 'dart:async'; // For Completer
-import 'dart:convert'; // For base64Decode and json
+import 'dart:async';
+import 'dart:convert';
 import 'package:capstone/screens/ar/asset_tshirt_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:http/http.dart' as http;
 
 class ARTshirtScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -57,50 +57,8 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeFaceDetector();
-    _testImagePaths(); // Test all paths first
     _loadTshirtImage();
-    _initializeCamera(true); // Start with front camera
-  }
-
-  // Debug method to test all possible image paths
-  Future<void> _testImagePaths() async {
-    developer.log("===== TESTING ALL POSSIBLE T-SHIRT IMAGES =====");
-    developer.log("Product Title: ${widget.productTitle}");
-    developer.log("Product ID: ${widget.productId}");
-
-    final List<String> testPaths = [
-      'assets/effects/ornament/Cross-black.png',
-      'assets/effects/ornament/BKEChain.png',
-      _assetImagePath,
-    ];
-
-    for (final path in testPaths) {
-      try {
-        await rootBundle.load(path);
-        developer.log("SUCCESS: Image exists at path: $path");
-      } catch (e) {
-        developer.log("ERROR: Image does not exist at path: $path");
-      }
-    }
-
-    // Test direct matches
-    final String lowerTitle = widget.productTitle.toLowerCase();
-    final List<String> keywords = [
-      'cross',
-      'chain',
-      'necklace',
-      'bke',
-      'premium',
-      'pendant'
-    ];
-
-    for (final keyword in keywords) {
-      if (lowerTitle.contains(keyword)) {
-        developer.log("KEYWORD MATCH: Product title contains '$keyword'");
-      }
-    }
-
-    developer.log("===============================================");
+    _initializeCamera(false); // Start with back camera
   }
 
   Future<void> _loadTshirtImage() async {
@@ -108,12 +66,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       setState(() {
         _isImageLoading = true;
       });
-
-      developer.log("============================================");
-      developer.log("🔍 LOADING T-SHIRT IMAGE");
-      developer.log("Product Title: '${widget.productTitle}'");
-      developer.log("Product ID: '${widget.productId}'");
-      developer.log("============================================");
 
       // Declare lowerTitle at the top of the method so it's available everywhere
       final String lowerTitle = widget.productTitle.toLowerCase();
@@ -136,19 +88,16 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           // Default watch
           imagePath = 'assets/effects/watches/Diesel Mega Chief.png';
         }
-        developer.log("Using watch image: $imagePath");
       }
       // Chain/necklace products
       else if (lowerTitle.contains('chain') ||
           lowerTitle.contains('necklace') ||
           lowerTitle.contains('bke')) {
         imagePath = 'assets/effects/ornament/BKEChain.png';
-        developer.log("Using chain image: $imagePath");
       }
       // Cross products
       else if (lowerTitle.contains('cross') || lowerTitle.contains('pendant')) {
         imagePath = 'assets/effects/ornament/Cross-black.png';
-        developer.log("Using cross image: $imagePath");
       }
       // Default fallback
       else {
@@ -158,11 +107,9 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         } else {
           imagePath = _assetImagePath; // Default t-shirt
         }
-        developer.log("Using default image: $imagePath");
       }
 
       try {
-        developer.log("Loading image: $imagePath");
         final ByteData data = await rootBundle.load(imagePath);
         final Uint8List bytes = data.buffer.asUint8List();
         final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -175,23 +122,13 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           _isImageLoading = false;
         });
 
-        developer.log("Successfully loaded image: $imagePath");
         return;
       } catch (e) {
-        developer.log("Failed to load image: ${e.toString()}");
         // Fall through to fallback method
       }
 
       // Log which product we're trying to load an image for
-      developer.log("Continuing with regular approach for: $lowerTitle");
-
       // Check for specific product types in the title for better matching
-      bool isCross = lowerTitle.contains('cross');
-      bool isChain =
-          lowerTitle.contains('chain') || lowerTitle.contains('necklace');
-
-      developer
-          .log("Product type detection: isCross=$isCross, isChain=$isChain");
 
       // Try to load the product mapping JSON
       try {
@@ -205,9 +142,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
 
         // Check for exact product name match first
         String? exactMatch = ornamentMapping[lowerTitle] as String?;
-        if (exactMatch != null) {
-          developer.log("Found exact match in mapping: $exactMatch");
-        }
+        if (exactMatch != null) {}
 
         // If no exact match, check for keyword match
         if (exactMatch == null) {
@@ -218,8 +153,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           for (final key in sortedKeys) {
             if (lowerTitle.contains(key)) {
               exactMatch = ornamentMapping[key] as String;
-              developer.log(
-                  "Keyword match found in ornaments: '$key' -> $exactMatch");
               break;
             }
           }
@@ -230,13 +163,11 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           final Map<String, dynamic> tshirtMapping =
               mapping['tshirts'] as Map<String, dynamic>;
           exactMatch = tshirtMapping['default'] as String?;
-          developer.log("Using default t-shirt: $exactMatch");
         }
 
         // If we found a match, load that image
         if (exactMatch != null) {
           try {
-            developer.log("Loading mapped image: $exactMatch");
             final ByteData data = await rootBundle.load(exactMatch);
             final Uint8List bytes = data.buffer.asUint8List();
             final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -249,17 +180,12 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
               _isImageLoading = false;
             });
 
-            developer
-                .log("Successfully loaded mapped product image: $exactMatch");
             return;
           } catch (e) {
-            developer
-                .log("Failed to load mapped product image: ${e.toString()}");
             // Fall through to next approach
           }
         }
       } catch (e) {
-        developer.log("Failed to load product mapping: ${e.toString()}");
         // Fall through to next approach
       }
 
@@ -278,7 +204,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       for (final entry in knownProducts.entries) {
         if (lowerTitle.contains(entry.key)) {
           try {
-            developer.log("DIRECT MATCH! Trying to load: ${entry.value}");
             final ByteData data = await rootBundle.load(entry.value);
             final Uint8List bytes = data.buffer.asUint8List();
             final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -291,11 +216,8 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
               _isImageLoading = false;
             });
 
-            developer.log(
-                "Successfully loaded specific product image: ${entry.value}");
             return;
           } catch (e) {
-            developer.log("Failed to load matched image: ${e.toString()}");
             // Continue to next approach
           }
         }
@@ -314,7 +236,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
               .addListener(ImageStreamListener((ImageInfo imageInfo, bool _) {
             completer.complete(imageInfo.image);
           }, onError: (exception, stackTrace) {
-            developer.log("Failed to load network image: $exception");
             _loadDefaultImage();
           }));
 
@@ -322,16 +243,12 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           _tshirtImage = await completer.future.timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              developer
-                  .log("Network image loading timed out, using default image");
               _loadDefaultImage();
               throw TimeoutException('Image loading timed out');
             },
           );
 
-          if (_tshirtImage != null) {
-            developer.log("Network t-shirt image loaded successfully");
-          }
+          if (_tshirtImage != null) {}
         } else if (widget.productImage.contains('base64')) {
           // Handle base64 image
           try {
@@ -344,10 +261,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
             final ui.Codec codec = await ui.instantiateImageCodec(bytes);
             final ui.FrameInfo fi = await codec.getNextFrame();
             _tshirtImage = fi.image;
-
-            developer.log("Base64 t-shirt image loaded successfully");
           } catch (e) {
-            developer.log("Failed to load base64 image: $e");
             _loadDefaultImage();
           }
         } else {
@@ -366,7 +280,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         _isImageLoading = false;
       });
     } catch (e) {
-      developer.log("Failed to load t-shirt image: $e");
       if (!mounted) return;
 
       setState(() {
@@ -402,13 +315,9 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         'assets/effects/ornament/BKEChain.png',
       ];
 
-      developer.log(
-          "Trying to load product image for: ${widget.productTitle} (ID: ${widget.productId})");
-
       // Try each possible image name
       for (final imagePath in possibleImageNames) {
         try {
-          developer.log("Trying image path: $imagePath");
           final ByteData data = await rootBundle.load(imagePath);
           final Uint8List bytes = data.buffer.asUint8List();
           final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -420,7 +329,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
             _tshirtImage = fi.image;
           });
 
-          developer.log("Successfully loaded product image: $imagePath");
           return; // Successfully loaded an image, so exit
         } catch (e) {
           // Just continue to the next possible image
@@ -448,15 +356,12 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
               _tshirtImage = fi.image;
             });
 
-            developer.log("Loaded ornament image as fallback: $imagePath");
             return; // Successfully loaded an image, so exit
           } catch (e) {
             // Continue to try next image
           }
         }
-      } catch (e) {
-        developer.log("Error loading from ornament folder: $e");
-      }
+      } catch (e) {}
 
       // Fall back to default t-shirt placeholder
       final ByteData data = await rootBundle.load(_assetImagePath);
@@ -469,11 +374,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       setState(() {
         _tshirtImage = fi.image;
       });
-
-      developer.log("Default t-shirt image loaded successfully");
-    } catch (e) {
-      developer.log("Failed to load any t-shirt image: $e");
-    }
+    } catch (e) {}
   }
 
   void _initializeFaceDetector() {
@@ -521,7 +422,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           );
         } catch (e) {
           // Fall back to the first camera if no front camera
-          developer.log("No front camera found, using first camera");
           selectedCamera = widget.cameras.first;
         }
       } else {
@@ -532,7 +432,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           );
         } catch (e) {
           // Fall back to the first camera if no back camera
-          developer.log("No back camera found, using first camera");
           selectedCamera = widget.cameras.first;
         }
       }
@@ -575,7 +474,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         _isUsingFrontCamera = useFrontCamera;
         _cameraActive = true;
       } catch (e) {
-        developer.log("Error configuring camera stream: $e");
         // If we can't start the stream, we still want to show the camera preview
         // so we don't set an error message here
       }
@@ -586,7 +484,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         });
       }
     } on CameraException catch (e) {
-      developer.log("Camera exception: ${e.code}: ${e.description}");
       if (mounted) {
         setState(() {
           _isInitializing = false;
@@ -594,7 +491,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         });
       }
     } catch (e) {
-      developer.log("Error initializing camera: $e");
       if (mounted) {
         setState(() {
           _isInitializing = false;
@@ -615,11 +511,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           await _cameraController!.dispose();
         }
       } on CameraException catch (e) {
-        developer.log(
-            "Camera exception during disposal: ${e.code}: ${e.description}");
-      } catch (e) {
-        developer.log("Error disposing camera: $e");
-      }
+      } catch (e) {}
       _cameraController = null;
     }
   }
@@ -646,7 +538,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         });
       }
     } catch (e) {
-      developer.log("Error processing image: $e");
     } finally {
       _isBusy = false;
     }
@@ -680,7 +571,6 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         ),
       );
     } catch (e) {
-      developer.log("Error creating input image: $e");
       return null;
     }
   }
@@ -720,11 +610,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         try {
           await _cameraController!.stopImageStream();
         } on CameraException catch (e) {
-          developer.log(
-              "Camera exception stopping stream: ${e.code}: ${e.description}");
-        } catch (e) {
-          developer.log("Error stopping camera stream: $e");
-        }
+        } catch (e) {}
       }
 
       // Hide the controls for the screenshot
@@ -778,14 +664,9 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         try {
           await _cameraController!.startImageStream(_processCameraImage);
         } on CameraException catch (e) {
-          developer.log(
-              "Camera exception restarting stream: ${e.code}: ${e.description}");
-        } catch (e) {
-          developer.log("Error restarting camera stream: $e");
-        }
+        } catch (e) {}
       }
     } catch (e) {
-      developer.log("Error capturing image: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

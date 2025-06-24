@@ -4,8 +4,8 @@ import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'dart:io';
-import 'dart:developer' as developer;
 import 'dart:ui' as ui;
+import 'dart:async';
 import 'dart:convert';
 import 'package:capstone/screens/ar/asset_sunglasses_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
@@ -59,7 +59,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeFaceDetector();
     _loadGlassesImage();
-    _initializeCamera(true); // Start with front camera
+    _initializeCamera(false); // Start with back camera
   }
 
   Future<void> _loadGlassesImage() async {
@@ -77,7 +77,6 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           _glassesImage = loadedImage;
           _isImageLoading = false;
         });
-        developer.log("✅ Loaded sunglasses from document storage");
         return;
       }
 
@@ -89,7 +88,6 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
             _glassesImage = loadedImage;
             _isImageLoading = false;
           });
-          developer.log("✅ Loaded sunglasses from Firebase images");
           return;
         }
       }
@@ -106,10 +104,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         _glassesImage = fi.image;
         _isImageLoading = false;
       });
-
-      developer.log("✅ Loaded sunglasses from generic assets");
     } catch (e) {
-      developer.log("Failed to load glasses image: $e");
       if (!mounted) return;
 
       setState(() {
@@ -131,27 +126,19 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
       );
 
       if (documentImages.isNotEmpty) {
-        developer.log(
-            '🎯 Found ${documentImages.length} organized sunglasses images');
-
-        // Try to load the first matching image
         for (File imageFile in documentImages) {
           try {
             final bytes = await imageFile.readAsBytes();
             final codec = await ui.instantiateImageCodec(bytes);
             final frame = await codec.getNextFrame();
-            developer
-                .log('📸 Loaded organized sunglasses image: ${imageFile.path}');
             return frame.image;
           } catch (e) {
-            developer.log(
-                '❌ Failed to load document sunglasses image: ${imageFile.path} - $e');
             continue;
           }
         }
       }
     } catch (e) {
-      developer.log('⚠️ Error loading sunglasses from document storage: $e');
+      // No need to log here, as it's already logged in the main function
     }
 
     return null;
@@ -175,7 +162,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
 
       return fi.image;
     } catch (e) {
-      developer.log("Failed to load Firebase sunglasses image: $e");
+      // No need to log here, as it's already logged in the main function
       return null;
     }
   }
@@ -225,7 +212,6 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           );
         } catch (e) {
           // Fall back to the first camera if no front camera
-          developer.log("No front camera found, using first camera");
           selectedCamera = widget.cameras.first;
         }
       } else {
@@ -236,7 +222,6 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           );
         } catch (e) {
           // Fall back to the first camera if no back camera
-          developer.log("No back camera found, using first camera");
           selectedCamera = widget.cameras.first;
         }
       }
@@ -279,7 +264,6 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         _isUsingFrontCamera = useFrontCamera;
         _cameraActive = true;
       } catch (e) {
-        developer.log("Error configuring camera stream: $e");
         // If we can't start the stream, we still want to show the camera preview
         // so we don't set an error message here
       }
@@ -290,7 +274,6 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         });
       }
     } on CameraException catch (e) {
-      developer.log("Camera exception: ${e.code}: ${e.description}");
       if (mounted) {
         setState(() {
           _isInitializing = false;
@@ -298,7 +281,6 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         });
       }
     } catch (e) {
-      developer.log("Error initializing camera: $e");
       if (mounted) {
         setState(() {
           _isInitializing = false;
@@ -319,10 +301,9 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           await _cameraController!.dispose();
         }
       } on CameraException catch (e) {
-        developer.log(
-            "Camera exception during disposal: ${e.code}: ${e.description}");
+        // No need to log here, as it's already logged in the main function
       } catch (e) {
-        developer.log("Error disposing camera: $e");
+        // No need to log here, as it's already logged in the main function
       }
       _cameraController = null;
     }
@@ -350,7 +331,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         });
       }
     } catch (e) {
-      developer.log("Error processing image: $e");
+      // No need to log here, as it's already logged in the main function
     } finally {
       _isBusy = false;
     }
@@ -385,7 +366,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         ),
       );
     } catch (e) {
-      developer.log("Error creating input image: $e");
+      // No need to log here, as it's already logged in the main function
       return null;
     }
   }
@@ -425,10 +406,9 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         try {
           await _cameraController!.stopImageStream();
         } on CameraException catch (e) {
-          developer.log(
-              "Camera exception stopping stream: ${e.code}: ${e.description}");
+          // No need to log here, as it's already logged in the main function
         } catch (e) {
-          developer.log("Error stopping camera stream: $e");
+          // No need to log here, as it's already logged in the main function
         }
       }
 
@@ -483,14 +463,12 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         try {
           await _cameraController!.startImageStream(_processCameraImage);
         } on CameraException catch (e) {
-          developer.log(
-              "Camera exception restarting stream: ${e.code}: ${e.description}");
+          // No need to log here, as it's already logged in the main function
         } catch (e) {
-          developer.log("Error restarting camera stream: $e");
+          // No need to log here, as it's already logged in the main function
         }
       }
     } catch (e) {
-      developer.log("Error capturing image: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

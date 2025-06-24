@@ -24,21 +24,8 @@ class AssetApparelPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Only print debug info occasionally to avoid spam
-    if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-      print(
-          '   Preloaded Image: ${preloadedImage != null ? "Available (${preloadedImage!.width}x${preloadedImage!.height})" : "NULL"}');
-      print('   Apparel Image Path: $apparelImagePath');
-      print('   Apparel Type: $apparelType');
-      print('   Torso Center: $torsoCenter');
-      print('   Shoulder Center: $shoulderCenter');
-      print('   Torso Size: ${torsoWidth}x$torsoHeight');
-    }
-
     // Use pre-loaded image if available, otherwise show minimal placeholder
     if (preloadedImage != null) {
-      if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-      }
       // Calculate apparel dimensions based on torso size and type
       final apparelDimensions = _calculateApparelDimensions();
 
@@ -50,8 +37,6 @@ class AssetApparelPainter extends CustomPainter {
         apparelDimensions.offsetY,
       );
     } else {
-      if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-      }
       // Show minimal placeholder only if no image is available
       _drawMinimalPlaceholder(canvas);
     }
@@ -126,18 +111,12 @@ class AssetApparelPainter extends CustomPainter {
           shoulderCenter!.dx, // Use shoulder X position
           shoulderCenter!.dy + (torsoHeight * 0.15), // Slightly below shoulders
         );
-        if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-          print('   📍 T-shirt positioned at shoulder: $apparelCenter');
-        }
       } else {
         // Fallback to torso center with offset
         apparelCenter = Offset(
           torsoCenter.dx,
           torsoCenter.dy + offsetY,
         );
-        if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-          print('   📍 T-shirt positioned at torso (fallback): $apparelCenter');
-        }
       }
     } else {
       // For other apparel types, use torso center with offset
@@ -145,9 +124,6 @@ class AssetApparelPainter extends CustomPainter {
         torsoCenter.dx,
         torsoCenter.dy + offsetY,
       );
-      if (DateTime.now().millisecondsSinceEpoch % 1000 < 100) {
-        print('   📍 Apparel positioned at torso: $apparelCenter');
-      }
     }
 
     final Rect destRect = Rect.fromCenter(

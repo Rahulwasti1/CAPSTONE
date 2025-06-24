@@ -4,13 +4,15 @@ import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'dart:io';
-import 'dart:developer' as developer;
+
 import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:convert';
 import 'package:capstone/screens/ar/asset_watches_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:capstone/service/asset_organizer_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:math' as math;
 
 class ARWatchesScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -42,30 +44,24 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
   bool _isImageLoading = true;
   bool _isCapturing = false;
   final GlobalKey _globalKey = GlobalKey();
-  bool _cameraActive = false;
 
   // Simple size controls like sunglasses - START BIG so users can reduce
   double _widthScale = 1.5;
   double _heightScale = 1.5;
   bool _showSizeControls = false;
 
-  // Pose detection for wrist detection
+  // Wrist detection variables - much more strict
   PoseDetector? _poseDetector;
   bool _isDetecting = false;
   bool _wristDetected = false;
-  Offset? _wristPosition;
-  Size? _cameraImageSize;
+  int _consecutiveDetections = 0;
+  static const int _minConsecutiveDetections = 8; // Increased from 5
+  static const double _minConfidence = 0.90; // Increased from 0.85
+  static const double _minArmLandmarkConfidence = 0.85; // Increased from 0.7
 
-  // Smoothing and stability improvements
+  // Detection timing
   DateTime? _lastDetectionTime;
-  static const int _detectionIntervalMs =
-      150; // Slightly faster for better responsiveness
-  List<Offset> _recentWristPositions = []; // For position smoothing
-  static const int _maxRecentPositions = 3; // Reduced for faster response
-  static const double _minConfidence = 0.5; // Lowered for better detection
-  int _consecutiveDetections = 0; // Count consecutive detections
-  static const int _minConsecutiveDetections =
-      2; // Reduced for faster activation
+  static const int _detectionIntervalMs = 200; // Slower for better accuracy
 
   @override
   void initState() {
@@ -73,7 +69,7 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializePoseDetector();
     _loadWatchImage();
-    _initializeCamera(true);
+    _initializeCamera(false);
   }
 
   @override
@@ -117,90 +113,89 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
         _errorMessage = null;
       });
 
-      developer.log("🔥 LOADING WATCH IMAGE");
-      developer
-          .log("Product: '${widget.productTitle}' (ID: ${widget.productId})");
-
       ui.Image? loadedImage;
 
-      // Priority 1: Try loading from organized document storage
+      // Priority 1: Try organized document storage
       loadedImage = await _tryLoadFromDocumentStorage();
       if (loadedImage != null) {
         setState(() {
           _watchImage = loadedImage;
           _isImageLoading = false;
         });
-        developer.log("✅ Loaded watch from document storage");
         return;
       }
 
       // Priority 2: Try loading from Firebase images (base64)
-      if (widget.productData != null) {
+      if (widget.productImage.isNotEmpty) {
         loadedImage = await _tryLoadFromFirebaseImages();
         if (loadedImage != null) {
           setState(() {
             _watchImage = loadedImage;
             _isImageLoading = false;
           });
-          developer.log("✅ Loaded watch from Firebase images");
           return;
         }
       }
 
-      // Priority 3: Try loading from product assets
+      // Priority 3: Try loading from product-specific assets
       loadedImage = await _tryLoadFromProductAssets();
       if (loadedImage != null) {
         setState(() {
           _watchImage = loadedImage;
           _isImageLoading = false;
         });
-        developer.log("✅ Loaded watch from product assets");
         return;
       }
 
-      // Try loading from generic assets
+      // Priority 4: Try generic assets with smart selection
       loadedImage = await _tryLoadFromGenericAssets();
       if (loadedImage != null) {
         setState(() {
           _watchImage = loadedImage;
           _isImageLoading = false;
         });
-        developer.log("✅ Loaded generic watch asset");
         return;
       }
 
-      // Create placeholder
+      // Create placeholder if all else fails
       await _createPlaceholderImage();
       setState(() {
         _isImageLoading = false;
       });
     } catch (e) {
-      developer.log("❌ Watch image loading failed: $e");
       await _createPlaceholderImage();
       setState(() {
         _isImageLoading = false;
-        _errorMessage = null;
+        _errorMessage = "Failed to load watch image";
       });
     }
   }
 
   Future<ui.Image?> _tryLoadFromFirebaseImages() async {
     try {
-      if (widget.productData == null) return null;
+      if (widget.productImage.isEmpty) return null;
 
-      List<String> imageURLs = [];
-      if (widget.productData!['imageURLs'] != null) {
-        imageURLs = List<String>.from(widget.productData!['imageURLs']);
+      // Handle base64 image data
+      if (widget.productImage.contains('base64,')) {
+        String base64Image = widget.productImage.split('base64,')[1];
+        final bytes = base64Decode(base64Image);
+        final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+        final ui.FrameInfo fi = await codec.getNextFrame();
+        return fi.image;
       }
 
-      if (imageURLs.isEmpty) return null;
+      // Handle network URLs
+      if (widget.productImage.startsWith('http')) {
+        final response = await http.get(Uri.parse(widget.productImage));
+        if (response.statusCode == 200) {
+          final ui.Codec codec =
+              await ui.instantiateImageCodec(response.bodyBytes);
+          final ui.FrameInfo fi = await codec.getNextFrame();
+          return fi.image;
+        }
+      }
 
-      final String base64Image = imageURLs.first;
-      final Uint8List bytes = base64Decode(base64Image);
-      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
-      final ui.FrameInfo fi = await codec.getNextFrame();
-
-      return fi.image;
+      return null;
     } catch (e) {
       return null;
     }
@@ -230,7 +225,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
       );
 
       if (documentImages.isNotEmpty) {
-
         // Try to load the first matching image
         for (File imageFile in documentImages) {
           try {
@@ -239,13 +233,13 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
             final frame = await codec.getNextFrame();
             return frame.image;
           } catch (e) {
-            print(
-                '❌ Failed to load document watch image: ${imageFile.path} - $e');
+            // Failed to load document watch image
             continue;
           }
         }
       }
     } catch (e) {
+      // Failed to load from document storage
     }
 
     return null;
@@ -256,14 +250,31 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
       final String lowerTitle = widget.productTitle.toLowerCase();
       String imagePath;
 
-      if (lowerTitle.contains('diesel') || lowerTitle.contains('chief')) {
-        imagePath = 'assets/effects/watches/Diesel Mega Chief.png';
-      } else if (lowerTitle.contains('guess') ||
-          lowerTitle.contains('letter')) {
-        imagePath = 'assets/effects/watches/Guess Letterm.png';
-      } else {
-        imagePath = 'assets/effects/watches/watch.png'; // Default
+      // Available watch assets
+      final Map<String, String> availableWatches = {
+        'diesel': 'assets/effects/watches/Diesel Mega Chief.png',
+        'mega chief': 'assets/effects/watches/Diesel Mega Chief.png',
+        'guess': 'assets/effects/watches/Guess Letterm.png',
+        'letterm': 'assets/effects/watches/Guess Letterm.png',
+        'nixon': 'assets/effects/watches/Nixon-Gold.png',
+        'sport': 'assets/effects/watches/SportTrouer-Green.png'
+      };
+
+      // Smart matching logic
+      for (var entry in availableWatches.entries) {
+        if (lowerTitle.contains(entry.key)) {
+          imagePath = entry.value;
+
+          final ByteData data = await rootBundle.load(imagePath);
+          final Uint8List bytes = data.buffer.asUint8List();
+          final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+          final ui.FrameInfo fi = await codec.getNextFrame();
+          return fi.image;
+        }
       }
+
+      // Default to first available watch if no match found
+      imagePath = availableWatches.values.first;
 
       final ByteData data = await rootBundle.load(imagePath);
       final Uint8List bytes = data.buffer.asUint8List();
@@ -346,7 +357,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
       await controller.setFlashMode(FlashMode.off);
 
       _isUsingFrontCamera = useFrontCamera;
-      _cameraActive = true;
 
       // Start image stream for pose detection
       controller.startImageStream(_processCameraImage);
@@ -354,23 +364,16 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
       setState(() {
         _isInitializing = false;
       });
-
-      developer
-          .log("📷 Camera initialized: ${useFrontCamera ? 'FRONT' : 'BACK'}");
     } on CameraException catch (e) {
-      developer.log("Camera exception: ${e.code}: ${e.description}");
       if (mounted) {
         setState(() {
-          _isInitializing = false;
-          _errorMessage = "Camera error: ${e.description}";
+          _errorMessage = 'Camera error: ${e.description}';
         });
       }
     } catch (e) {
-      developer.log("Error initializing camera: $e");
       if (mounted) {
         setState(() {
-          _isInitializing = false;
-          _errorMessage = "Failed to initialize camera: ${e.toString()}";
+          _errorMessage = 'Failed to initialize camera';
         });
       }
     }
@@ -378,7 +381,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
 
   Future<void> _disposeCurrentCamera() async {
     if (_cameraController != null) {
-      _cameraActive = false;
       try {
         // Stop image stream before disposing
         if (_cameraController!.value.isStreamingImages) {
@@ -386,10 +388,9 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
         }
         if (_cameraController!.value.isInitialized) {
           await _cameraController!.dispose();
-          developer.log("📷 Camera controller disposed");
         }
       } catch (e) {
-        developer.log("❌ Error disposing camera: $e");
+        // Ignore any errors during disposal
       }
       _cameraController = null;
     }
@@ -411,27 +412,21 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     _lastDetectionTime = now;
 
     try {
-      // Store camera image size for coordinate conversion
-      _cameraImageSize = Size(image.width.toDouble(), image.height.toDouble());
-
       // Convert camera image to InputImage with error handling
       final inputImage = _convertCameraImageToInputImage(image);
       if (inputImage == null) {
-        developer.log("⚠️ Failed to convert camera image");
         return;
       }
 
       // Process with pose detector
       final poses = await _poseDetector!.processImage(inputImage);
 
-      // Update wrist detection with smoothing
+      // Update wrist detection
       _updateWristDetection(poses);
     } catch (e) {
-      developer.log("❌ Error processing camera image: $e");
       // Reset detection state on error
       setState(() {
         _wristDetected = false;
-        _wristPosition = null;
       });
     } finally {
       _isDetecting = false;
@@ -446,18 +441,15 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
           InputImageRotationValue.fromRawValue(camera.sensorOrientation);
 
       if (rotation == null) {
-        developer.log("⚠️ Unknown rotation value: ${camera.sensorOrientation}");
         return null;
       }
 
       final format = InputImageFormatValue.fromRawValue(image.format.raw);
       if (format == null) {
-        developer.log("⚠️ Unknown image format: ${image.format.raw}");
         return null;
       }
 
       if (image.planes.isEmpty) {
-        developer.log("⚠️ Image has no planes");
         return null;
       }
 
@@ -471,128 +463,164 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
         ),
       );
     } catch (e) {
-      developer.log("❌ Error converting camera image: $e");
       return null;
     }
   }
 
-  /// Enhanced wrist detection with better filtering and multiple wrist checking
+  /// Strict wrist detection with full arm validation
   void _updateWristDetection(List<Pose> poses) {
-    bool wristFound = false;
-    Offset? detectedWristPosition;
+    bool validWristFound = false;
     double bestConfidence = 0.0;
-    String detectedWrist = "";
+
+    // Check for poses
+    if (poses.isEmpty) {
+      setState(() {
+        _wristDetected = false;
+      });
+      _consecutiveDetections = 0;
+      return;
+    }
 
     for (final pose in poses) {
-      // Check both wrists and pick the one with highest confidence
+      // Get all arm landmarks for validation
       final rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
       final leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+      final rightElbow = pose.landmarks[PoseLandmarkType.rightElbow];
+      final leftElbow = pose.landmarks[PoseLandmarkType.leftElbow];
+      final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
+      final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
 
-      // Check right wrist
-      if (rightWrist != null && rightWrist.likelihood > _minConfidence) {
-        if (rightWrist.likelihood > bestConfidence) {
-          wristFound = true;
-          detectedWristPosition = Offset(rightWrist.x, rightWrist.y);
-          bestConfidence = rightWrist.likelihood;
-          detectedWrist = "Right";
-        }
-      }
-
-      // Check left wrist
-      if (leftWrist != null && leftWrist.likelihood > _minConfidence) {
-        if (leftWrist.likelihood > bestConfidence) {
-          wristFound = true;
-          detectedWristPosition = Offset(leftWrist.x, leftWrist.y);
-          bestConfidence = leftWrist.likelihood;
-          detectedWrist = "Left";
-        }
-      }
-
-      // Also check for hand landmarks as backup (sometimes more reliable)
-      final rightIndex = pose.landmarks[PoseLandmarkType.rightIndex];
-      final leftIndex = pose.landmarks[PoseLandmarkType.leftIndex];
-
-      if (!wristFound) {
-        // Use hand index as wrist approximation if wrist not detected
-        if (rightIndex != null && rightIndex.likelihood > _minConfidence) {
-          if (rightIndex.likelihood > bestConfidence) {
-            wristFound = true;
-            // Approximate wrist position from index finger
-            detectedWristPosition =
-                Offset(rightIndex.x + 20, rightIndex.y + 30);
-            bestConfidence = rightIndex.likelihood;
-            detectedWrist = "Right (from hand)";
+      // Check right arm with full validation
+      if (rightWrist != null &&
+          rightElbow != null &&
+          rightShoulder != null &&
+          rightWrist.likelihood > _minConfidence &&
+          rightElbow.likelihood > _minArmLandmarkConfidence &&
+          rightShoulder.likelihood > _minArmLandmarkConfidence) {
+        // Validate complete arm structure
+        if (_isValidCompleteArm(rightWrist, rightElbow, rightShoulder)) {
+          if (rightWrist.likelihood > bestConfidence) {
+            validWristFound = true;
+            bestConfidence = rightWrist.likelihood;
           }
         }
+      }
 
-        if (leftIndex != null && leftIndex.likelihood > _minConfidence) {
-          if (leftIndex.likelihood > bestConfidence) {
-            wristFound = true;
-            // Approximate wrist position from index finger
-            detectedWristPosition = Offset(leftIndex.x - 20, leftIndex.y + 30);
-            bestConfidence = leftIndex.likelihood;
-            detectedWrist = "Left (from hand)";
+      // Check left arm with full validation
+      if (leftWrist != null &&
+          leftElbow != null &&
+          leftShoulder != null &&
+          leftWrist.likelihood > _minConfidence &&
+          leftElbow.likelihood > _minArmLandmarkConfidence &&
+          leftShoulder.likelihood > _minArmLandmarkConfidence) {
+        // Validate complete arm structure
+        if (_isValidCompleteArm(leftWrist, leftElbow, leftShoulder)) {
+          if (leftWrist.likelihood > bestConfidence) {
+            validWristFound = true;
+            bestConfidence = leftWrist.likelihood;
           }
         }
       }
     }
 
-    if (wristFound && detectedWristPosition != null) {
-      // Add to recent positions for smoothing
-      _recentWristPositions.add(detectedWristPosition);
-      if (_recentWristPositions.length > _maxRecentPositions) {
-        _recentWristPositions.removeAt(0);
-      }
-
+    if (validWristFound) {
       _consecutiveDetections++;
 
-      // Show watch after consecutive detections
+      // Show watch only after many consecutive detections
       if (_consecutiveDetections >= _minConsecutiveDetections) {
-        // Calculate smoothed position
-        Offset smoothedPosition = _calculateSmoothedPosition();
-
         setState(() {
           _wristDetected = true;
-          _wristPosition = smoothedPosition;
         });
-
-        developer.log(
-            "✅ $detectedWrist wrist detected at (${smoothedPosition.dx.toInt()}, ${smoothedPosition.dy.toInt()}) with confidence ${(bestConfidence * 100).toInt()}%");
       }
     } else {
       _consecutiveDetections = 0;
-      _recentWristPositions.clear();
-
       setState(() {
         _wristDetected = false;
-        _wristPosition = null;
       });
-
-      developer.log("❌ No wrist detected or confidence too low");
     }
   }
 
-  /// Calculate smoothed position from recent detections
-  Offset _calculateSmoothedPosition() {
-    if (_recentWristPositions.isEmpty) return Offset.zero;
+  /// Validate complete arm structure with ultra-strict geometric rules
+  bool _isValidCompleteArm(
+      PoseLandmark wrist, PoseLandmark elbow, PoseLandmark shoulder) {
+    // Calculate distances
+    final wristToElbow = _calculateDistance(wrist, elbow);
+    final elbowToShoulder = _calculateDistance(elbow, shoulder);
+    final wristToShoulder = _calculateDistance(wrist, shoulder);
 
-    double totalX = 0;
-    double totalY = 0;
+    // Ultra-strict distance validation (tighter human arm proportions)
+    if (wristToElbow < 90 || wristToElbow > 180) return false; // Tighter range
+    if (elbowToShoulder < 90 || elbowToShoulder > 180)
+      return false; // Tighter range
+    if (wristToShoulder < 140 || wristToShoulder > 320)
+      return false; // Tighter range
 
-    // Give more weight to recent positions
-    for (int i = 0; i < _recentWristPositions.length; i++) {
-      double weight =
-          (i + 1) / _recentWristPositions.length; // More recent = higher weight
-      totalX += _recentWristPositions[i].dx * weight;
-      totalY += _recentWristPositions[i].dy * weight;
-    }
+    // Forearm should be very similar to upper arm (human proportions)
+    if (wristToElbow > elbowToShoulder * 1.2) return false; // Tighter ratio
+    if (wristToElbow < elbowToShoulder * 0.8) return false; // Tighter ratio
 
-    double weightSum = 0;
-    for (int i = 1; i <= _recentWristPositions.length; i++) {
-      weightSum += i / _recentWristPositions.length;
-    }
+    // Validate arm angle (must be naturally bent, not straight line)
+    final angle = _calculateAngle(wrist, elbow, shoulder);
+    if (angle < 60 || angle > 150) return false; // Tighter angle range
 
-    return Offset(totalX / weightSum, totalY / weightSum);
+    // Additional validation: check if landmarks form a realistic arm shape
+    if (!_isRealisticArmShape(wrist, elbow, shoulder)) return false;
+
+    return true;
+  }
+
+  /// Additional validation for realistic arm shape
+  bool _isRealisticArmShape(
+      PoseLandmark wrist, PoseLandmark elbow, PoseLandmark shoulder) {
+    // Check if elbow is positioned between wrist and shoulder (not in a straight line)
+    final wristToShoulder = _calculateDistance(wrist, shoulder);
+    final wristToElbow = _calculateDistance(wrist, elbow);
+    final elbowToShoulder = _calculateDistance(elbow, shoulder);
+
+    // Triangle inequality check - elbow should create a proper triangle
+    if (wristToElbow + elbowToShoulder <= wristToShoulder * 1.1) return false;
+
+    // Check if all three points are roughly in the same plane (not too spread out)
+    final area = _calculateTriangleArea(wrist, elbow, shoulder);
+    if (area < 500 || area > 15000) return false; // Realistic arm triangle area
+
+    return true;
+  }
+
+  /// Calculate triangle area formed by three landmarks
+  double _calculateTriangleArea(
+      PoseLandmark p1, PoseLandmark p2, PoseLandmark p3) {
+    return ((p1.x * (p2.y - p3.y) +
+                p2.x * (p3.y - p1.y) +
+                p3.x * (p1.y - p2.y)) /
+            2)
+        .abs();
+  }
+
+  /// Calculate distance between two pose landmarks
+  double _calculateDistance(PoseLandmark point1, PoseLandmark point2) {
+    final dx = point1.x - point2.x;
+    final dy = point1.y - point2.y;
+    return math.sqrt(dx * dx + dy * dy);
+  }
+
+  /// Calculate angle between three points (elbow is the vertex)
+  double _calculateAngle(
+      PoseLandmark wrist, PoseLandmark elbow, PoseLandmark shoulder) {
+    final vector1x = wrist.x - elbow.x;
+    final vector1y = wrist.y - elbow.y;
+    final vector2x = shoulder.x - elbow.x;
+    final vector2y = shoulder.y - elbow.y;
+
+    final dot = vector1x * vector2x + vector1y * vector2y;
+    final mag1 = math.sqrt(vector1x * vector1x + vector1y * vector1y);
+    final mag2 = math.sqrt(vector2x * vector2x + vector2y * vector2y);
+
+    if (mag1 == 0 || mag2 == 0) return 0;
+
+    final cosAngle = dot / (mag1 * mag2);
+    final angleRad = math.acos(cosAngle.clamp(-1.0, 1.0));
+    return angleRad * 180 / math.pi;
   }
 
   Future<void> _flipCamera() async {
@@ -636,7 +664,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
         }
       }
     } catch (e) {
-      developer.log("❌ Error capturing image: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -650,21 +677,6 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     setState(() {
       _isCapturing = false;
     });
-  }
-
-  Widget _buildControlButton(
-      {required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
-      ),
-    );
   }
 
   @override
@@ -745,54 +757,17 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
           // Camera preview
           CameraPreview(_cameraController!),
 
-          // Watch overlay - Show when wrist is detected with real-time position
+          // Watch overlay - Show when wrist is detected
           if (!_isImageLoading && _watchImage != null && _wristDetected)
             CustomPaint(
-              painter: _wristPosition != null && _cameraImageSize != null
-                  ? WristWatchPainter(
-                      watchImage: _watchImage!,
-                      screenSize: MediaQuery.of(context).size,
-                      isFrontCamera: _isUsingFrontCamera,
-                      widthScale: _widthScale,
-                      heightScale: _heightScale,
-                      wristPosition: _wristPosition!,
-                      cameraSize: _cameraImageSize!,
-                    )
-                  : SimpleWatchPainter(
-                      watchImage: _watchImage!,
-                      screenSize: MediaQuery.of(context).size,
-                      isFrontCamera: _isUsingFrontCamera,
-                      widthScale: _widthScale,
-                      heightScale: _heightScale,
-                    ),
-              child: Container(),
-            ),
-
-          // Status indicator - Show wrist detection status
-          if (!_isImageLoading && !_isCapturing)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 80,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: (_wristDetected ? Colors.green : Colors.orange)
-                      .withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _wristDetected
-                      ? "✅ Watch Active - Tracking Your Wrist!"
-                      : _consecutiveDetections > 0
-                          ? "🔄 Detecting... (${_consecutiveDetections}/${_minConsecutiveDetections})"
-                          : "🤚 Position your wrist in view to try on the watch",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.center,
-                ),
+              size: Size.infinite,
+              painter: WristWatchPainter(
+                watchImage: _watchImage!,
+                screenSize: MediaQuery.of(context).size,
+                isFrontCamera: _isUsingFrontCamera,
+                widthScale: _widthScale,
+                heightScale: _heightScale,
+                wristDetected: _wristDetected,
               ),
             ),
 

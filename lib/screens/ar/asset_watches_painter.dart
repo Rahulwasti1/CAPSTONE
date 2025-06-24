@@ -78,7 +78,7 @@ class WatchOverlayPainter extends CustomPainter {
 
     canvas.restore();
 
-    // Debug overlays removed for production
+    // Production build - no debug output needed
   }
 
   /// ✅ IMPROVED coordinate conversion from camera to screen
@@ -195,11 +195,7 @@ class DefaultWatchPainter extends CustomPainter {
 
     canvas.restore();
 
-    print(
-        "   Position: (${adjustedPosition.dx.toInt()}, ${adjustedPosition.dy.toInt()})");
-    print("   Size: ${finalWatchSize.toInt()}px");
-    print("   Scale: ${scale.toStringAsFixed(2)}x");
-    print("   Rotation: ${(rotation * 180 / math.pi).toStringAsFixed(1)}°");
+    // Production build - no debug output needed
   }
 
   @override
@@ -236,9 +232,8 @@ class SimpleWatchPainter extends CustomPainter {
 
     final basePosition = Offset(centerX, centerY);
 
-    // ✅ Calculate realistic watch size - much smaller and more proportional
-    final baseSize =
-        screenSize.width * 0.15; // Reduced from 0.4 to 0.15 for realistic size
+    // ✅ Calculate realistic watch size - much smaller for realistic appearance
+    final baseSize = screenSize.width * 0.08; // Much smaller for realistic size
     final finalWatchWidth = baseSize * widthScale;
     final finalWatchHeight = baseSize * heightScale;
 
@@ -265,11 +260,9 @@ class SimpleWatchPainter extends CustomPainter {
     // ✅ Draw the watch at the fixed position
     canvas.drawImageRect(watchImage, srcRect, watchRect, paint);
 
-    print(
-        "   Position: (${basePosition.dx.toInt()}, ${basePosition.dy.toInt()})");
-    print("   Size: ${finalWatchWidth.toInt()}x${finalWatchHeight.toInt()}px");
-    print("   Width Scale: ${widthScale.toStringAsFixed(2)}x");
-    print("   Height Scale: ${heightScale.toStringAsFixed(2)}x");
+    canvas.restore();
+
+    // Production build - no debug output needed
   }
 
   @override
@@ -280,15 +273,14 @@ class SimpleWatchPainter extends CustomPainter {
   }
 }
 
-/// ✅ WRIST WATCH PAINTER - Shows watch at detected wrist position with proper coordinate conversion
+/// ✅ WRIST WATCH PAINTER - Shows watch at fixed natural position when wrist detected
 class WristWatchPainter extends CustomPainter {
   final ui.Image watchImage;
   final Size screenSize;
   final bool isFrontCamera;
   final double widthScale;
   final double heightScale;
-  final Offset wristPosition;
-  final Size cameraSize;
+  final bool wristDetected; // Just use this to show/hide
 
   const WristWatchPainter({
     required this.watchImage,
@@ -296,24 +288,27 @@ class WristWatchPainter extends CustomPainter {
     required this.isFrontCamera,
     required this.widthScale,
     required this.heightScale,
-    required this.wristPosition,
-    required this.cameraSize,
+    required this.wristDetected,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Convert wrist position to screen coordinates
-    final adjustedWristPosition = _convertWristPosition();
+    // Only show watch if wrist is detected
+    if (!wristDetected) return;
 
-    // ✅ Calculate realistic watch size - much smaller and more proportional
-    final baseSize =
-        screenSize.width * 0.15; // Reduced from 0.4 to 0.15 for realistic size
+    // Fixed natural wrist position - right side of screen, lower area
+    final double centerX = screenSize.width * 0.75; // Right side
+    final double centerY =
+        screenSize.height * 0.65; // Lower area, natural wrist position
+
+    // ✅ Larger default size for better visibility
+    final baseSize = screenSize.width * 0.15; // Increased from 0.08 to 0.15
     final finalWatchWidth = baseSize * widthScale;
     final finalWatchHeight = baseSize * heightScale;
 
-    // Create watch rectangle centered on wrist position
+    // Create watch rectangle at fixed position
     final watchRect = Rect.fromCenter(
-      center: adjustedWristPosition,
+      center: Offset(centerX, centerY),
       width: finalWatchWidth,
       height: finalWatchHeight,
     );
@@ -326,75 +321,15 @@ class WristWatchPainter extends CustomPainter {
       watchImage.height.toDouble(),
     );
 
-    // Paint with high quality
+    // Draw with high quality
     final paint = Paint()
       ..isAntiAlias = true
       ..filterQuality = FilterQuality.high;
 
-    // ✅ Draw the watch at the detected wrist position
+    // ✅ Draw the watch at fixed natural position
     canvas.drawImageRect(watchImage, srcRect, watchRect, paint);
 
-    print(
-        "   Adjusted Position: (${adjustedWristPosition.dx.toInt()}, ${adjustedWristPosition.dy.toInt()})");
-    print("   Size: ${finalWatchWidth.toInt()}x${finalWatchHeight.toInt()}px");
-    print("   Width Scale: ${widthScale.toStringAsFixed(2)}x");
-    print("   Height Scale: ${heightScale.toStringAsFixed(2)}x");
-  }
-
-  /// ✅ IMPROVED coordinate conversion from camera coordinates to screen coordinates
-  Offset _convertWristPosition() {
-    // Get the actual camera preview size and position on screen
-    final double cameraAspectRatio = cameraSize.width / cameraSize.height;
-    final double screenAspectRatio = screenSize.width / screenSize.height;
-
-    double scaleX, scaleY;
-    double offsetX = 0;
-    double offsetY = 0;
-
-    // Camera preview fills the screen, so we need to calculate how it's scaled
-    if (cameraAspectRatio > screenAspectRatio) {
-      // Camera is wider - it's cropped horizontally
-      scaleY = screenSize.height / cameraSize.height;
-      scaleX = scaleY;
-      final scaledWidth = cameraSize.width * scaleX;
-      offsetX = (screenSize.width - scaledWidth) / 2;
-    } else {
-      // Camera is taller - it's cropped vertically
-      scaleX = screenSize.width / cameraSize.width;
-      scaleY = scaleX;
-      final scaledHeight = cameraSize.height * scaleY;
-      offsetY = (screenSize.height - scaledHeight) / 2;
-    }
-
-    // Convert wrist position from camera coordinates to screen coordinates
-    double screenX = (wristPosition.dx * scaleX) + offsetX;
-    double screenY = (wristPosition.dy * scaleY) + offsetY;
-
-    // ✅ Mirror X coordinate for front camera (selfie mode)
-    if (isFrontCamera) {
-      screenX = screenSize.width - screenX;
-    }
-
-    // ✅ Add wrist-specific offset to position watch correctly on wrist
-    // The ML Kit detects the center of the wrist, but we want the watch slightly above
-    final wristOffset =
-        screenSize.height * 0.02; // 2% of screen height above wrist center
-    screenY -= wristOffset;
-
-    print(
-        "   Camera Size: ${cameraSize.width.toInt()}x${cameraSize.height.toInt()}");
-    print(
-        "   Screen Size: ${screenSize.width.toInt()}x${screenSize.height.toInt()}");
-    print(
-        "   Scale X: ${scaleX.toStringAsFixed(3)}, Scale Y: ${scaleY.toStringAsFixed(3)}");
-    print("   Offset X: ${offsetX.toInt()}, Offset Y: ${offsetY.toInt()}");
-    print(
-        "   Camera Wrist: (${wristPosition.dx.toInt()}, ${wristPosition.dy.toInt()})");
-    print("   Screen Wrist: (${screenX.toInt()}, ${screenY.toInt()})");
-    print("   Wrist Offset Applied: ${wristOffset.toInt()}px");
-    print("   Front Camera: $isFrontCamera");
-
-    return Offset(screenX, screenY);
+    // Production build - no debug output needed
   }
 
   @override
@@ -402,8 +337,7 @@ class WristWatchPainter extends CustomPainter {
     return oldDelegate.watchImage != watchImage ||
         oldDelegate.widthScale != widthScale ||
         oldDelegate.heightScale != heightScale ||
-        oldDelegate.wristPosition != wristPosition ||
-        oldDelegate.cameraSize != cameraSize;
+        oldDelegate.wristDetected != wristDetected;
   }
 }
 

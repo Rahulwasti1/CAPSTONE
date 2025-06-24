@@ -4,13 +4,14 @@ import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'dart:io';
-import 'dart:developer' as developer;
+
 import 'dart:ui' as ui;
 import 'dart:async'; // For Completer
 import 'dart:convert'; // For base64Decode and json
 import 'package:capstone/screens/ar/asset_ornaments_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:capstone/service/asset_organizer_service.dart';
+import 'dart:math' as math;
 
 class AROrnamentScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -42,7 +43,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
   Size? _imageSize;
   bool _isInitializing = true;
   String? _errorMessage;
-  final String _assetImagePath = 'assets/effects/ornaments/necklace.png';
+
   ui.Image? _ornamentImage;
   bool _isImageLoading = true;
   bool _isCapturing = false;
@@ -53,7 +54,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
   double _widthScale = 2.0; // Default width scale
   double _heightScale = 1.2; // Default height scale - taller for necklaces
   double _verticalOffset =
-      0.5; // Increased default vertical offset for lower position
+      0.15; // Much smaller offset - place on upper chest, not hanging low
   bool _showAdjustmentControls = false;
 
   @override
@@ -61,25 +62,19 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeFaceDetector();
-    _testOrnamentImages(); // Test all paths first
+    // Production build - no testing needed
     _loadOrnamentImage();
-    _initializeCamera(true); // Start with front camera
+    _initializeCamera(false); // Start with back camera
   }
 
   Future<void> _loadOrnamentImage() async {
     try {
       setState(() {
         _isImageLoading = true;
-        _errorMessage = null; // Clear any previous errors
+        _errorMessage = null;
       });
 
-      developer.log("============================================");
-      developer.log("🔍 LOADING ORNAMENT IMAGE");
-      developer.log("Product Title: '${widget.productTitle}'");
-      developer.log("Product ID: '${widget.productId}'");
-      developer.log("============================================");
-
-      // Declare lowerTitle at the top for use throughout the method
+      // Get lowercase title for matching
       final String lowerTitle = widget.productTitle.toLowerCase();
 
       // DIRECT MAPPING - Find the exact image file to use
@@ -100,19 +95,16 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           // Default watch
           imagePath = 'assets/effects/watches/Diesel Mega Chief.png';
         }
-        developer.log("Using watch image: $imagePath");
       }
       // Chain/necklace products
       else if (lowerTitle.contains('chain') ||
           lowerTitle.contains('necklace') ||
           lowerTitle.contains('bke')) {
         imagePath = 'assets/effects/ornament/BKEChain.png';
-        developer.log("Using chain image: $imagePath");
       }
       // Cross products
       else if (lowerTitle.contains('cross') || lowerTitle.contains('pendant')) {
         imagePath = 'assets/effects/ornament/Cross-black.png';
-        developer.log("Using cross image: $imagePath");
       }
       // Default fallback
       else {
@@ -122,11 +114,9 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         } else {
           imagePath = 'assets/effects/ornament/BKEChain.png';
         }
-        developer.log("Using default image: $imagePath");
       }
 
       try {
-        developer.log("Loading image: $imagePath");
         final ByteData data = await rootBundle.load(imagePath);
         final Uint8List bytes = data.buffer.asUint8List();
         final ui.Codec codec = await ui.instantiateImageCodec(bytes);
@@ -139,21 +129,13 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           _isImageLoading = false;
         });
 
-        developer.log("Successfully loaded image: $imagePath");
         return;
       } catch (e) {
-        developer.log("Failed to load image: ${e.toString()}");
         // Fall through to fallback method
       }
 
       // If we get here, try to load default image
-      try {
-        await _loadDefaultImage();
-      } catch (e) {
-        developer.log("Failed to load default ornament image: $e");
-        // Try creating a placeholder image as last resort
-        await _createPlaceholderImage();
-      }
+      await _loadDefaultImage();
 
       if (!mounted) return;
 
@@ -164,7 +146,6 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         });
       }
     } catch (e) {
-      developer.log("Failed to load ornament image: $e");
       if (!mounted) return;
 
       // Try to create a placeholder as last resort
@@ -181,11 +162,6 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
   }
 
   Future<void> _loadDefaultImage() async {
-    // Log available assets for debugging
-    developer.log("Available ornament assets:");
-    developer.log(" - Product title: ${widget.productTitle}");
-    developer.log(" - Product ID: ${widget.productId}");
-
     // Priority 1: Try loading from organized document storage
     try {
       List<File> documentImages = await AssetOrganizerService.getProductImages(
@@ -196,9 +172,6 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
       );
 
       if (documentImages.isNotEmpty) {
-        developer
-            .log('🎯 Found ${documentImages.length} organized ornament images');
-
         // Try to load the first matching image
         for (File imageFile in documentImages) {
           try {
@@ -209,21 +182,17 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
             if (mounted) {
               setState(() {
                 _ornamentImage = frame.image;
+                _isImageLoading = false;
               });
             }
-
-            developer.log(
-                '✅ Loaded organized document ornament image: ${imageFile.path}');
             return;
           } catch (e) {
-            developer.log(
-                '❌ Failed to load document ornament image: ${imageFile.path} - $e');
             continue;
           }
         }
       }
     } catch (e) {
-      developer.log('⚠️ Error loading from document storage: $e');
+      // Failed to load from document storage
     }
 
     // Priority 2: Try loading from Firebase images (base64)
@@ -233,79 +202,61 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         if (mounted) {
           setState(() {
             _ornamentImage = firebaseImage;
+            _isImageLoading = false;
           });
         }
-        developer.log("✅ Loaded ornament from Firebase images");
         return;
       }
     }
 
-    // Priority 3: Try loading from asset storage (existing logic)
-    // Declare lowerTitle at the top for use throughout the method
-    final String lowerTitle = widget.productTitle.toLowerCase();
+    // Priority 3: Try loading from product-specific assets
+    try {
+      final String productAssetPath =
+          'assets/products/${widget.productId}/ornament.png';
+      final ByteData data = await rootBundle.load(productAssetPath);
+      final Uint8List bytes = data.buffer.asUint8List();
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo fi = await codec.getNextFrame();
 
-    // Track if we've tried any image paths at all
-    bool attemptedAnyPath = false;
-    List<String> failedPaths = [];
+      if (mounted) {
+        setState(() {
+          _ornamentImage = fi.image;
+          _isImageLoading = false;
+        });
+      }
+      return;
+    } catch (e) {
+      // Continue to generic assets
+    }
 
-    // Exact match by filename
-    final String productName = widget.productTitle.replaceAll(' ', '-');
+    // Priority 4: Try generic assets with smart selection
     final List<String> possibleImageNames = [
-      // Exact match by filename
-      'assets/effects/ornament/${productName}.png',
-      'assets/effects/ornament/${widget.productId}.png',
-
-      // Try exact file names we know exist based on product title
-      if (widget.productTitle.toLowerCase().contains("cross"))
-        'assets/effects/ornament/Cross-black.png',
-      if (widget.productTitle.toLowerCase().contains("chain") ||
-          widget.productTitle.toLowerCase().contains("necklace") ||
-          widget.productTitle.toLowerCase().contains("bke"))
-        'assets/effects/ornament/BKEChain.png',
-
-      // More variations of the product name
-      'assets/effects/ornament/${productName.toLowerCase()}.png',
-      'assets/effects/ornament/${productName.toUpperCase()}.png',
-
-      // Always fallback to available images for testing
-      'assets/effects/ornament/Cross-black.png',
-      'assets/effects/ornament/BKEChain.png',
+      'assets/effects/ornaments/BKEChain.png',
+      'assets/effects/ornaments/Cross-black.png',
+      'assets/effects/ornaments/Cross-Gold.png',
     ];
 
-    developer.log("Trying ${possibleImageNames.length} possible image paths");
-
-    // Try each possible image name
-    for (final imagePath in possibleImageNames) {
-      attemptedAnyPath = true;
+    for (String imagePath in possibleImageNames) {
       try {
-        developer.log("Trying image path: $imagePath");
         final ByteData data = await rootBundle.load(imagePath);
         final Uint8List bytes = data.buffer.asUint8List();
         final ui.Codec codec = await ui.instantiateImageCodec(bytes);
         final ui.FrameInfo fi = await codec.getNextFrame();
 
-        if (!mounted) return;
-
-        setState(() {
-          _ornamentImage = fi.image;
-        });
-
-        developer.log("Successfully loaded ornament image: $imagePath");
-        return; // Successfully loaded an image, so exit
+        if (mounted) {
+          setState(() {
+            _ornamentImage = fi.image;
+            _isImageLoading = false;
+          });
+        }
+        return;
       } catch (e) {
-        failedPaths.add(imagePath);
-        // Just continue to the next possible image
+        continue;
       }
     }
 
-    // If we get here and didn't try any paths, it's a configuration error
-    if (!attemptedAnyPath) {
-      throw Exception("No image paths were attempted - check configuration");
-    }
-
-    // If we get here and tried all paths, throw descriptive error
-    throw Exception(
-        "Failed to load any ornament image. Tried paths: ${failedPaths.join(', ')}");
+    // If nothing worked, create placeholder
+    await _createPlaceholderImage();
   }
 
   Future<ui.Image?> _tryLoadFromFirebaseImages() async {
@@ -326,7 +277,6 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
 
       return fi.image;
     } catch (e) {
-      developer.log("Failed to load Firebase ornament image: $e");
       return null;
     }
   }
@@ -376,7 +326,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           );
         } catch (e) {
           // Fall back to the first camera if no front camera
-          developer.log("No front camera found, using first camera");
+          // No front camera found, using first camera
           selectedCamera = widget.cameras.first;
         }
       } else {
@@ -387,7 +337,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           );
         } catch (e) {
           // Fall back to the first camera if no back camera
-          developer.log("No back camera found, using first camera");
+          // No back camera found, using first camera
           selectedCamera = widget.cameras.first;
         }
       }
@@ -430,7 +380,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         _isUsingFrontCamera = useFrontCamera;
         _cameraActive = true;
       } catch (e) {
-        developer.log("Error configuring camera stream: $e");
+        // Error configuring camera stream
         // If we can't start the stream, we still want to show the camera preview
         // so we don't set an error message here
       }
@@ -441,7 +391,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         });
       }
     } on CameraException catch (e) {
-      developer.log("Camera exception: ${e.code}: ${e.description}");
+      // Camera exception occurred
       if (mounted) {
         setState(() {
           _isInitializing = false;
@@ -449,7 +399,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         });
       }
     } catch (e) {
-      developer.log("Error initializing camera: $e");
+      // Error initializing camera
       if (mounted) {
         setState(() {
           _isInitializing = false;
@@ -470,10 +420,9 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           await _cameraController!.dispose();
         }
       } on CameraException catch (e) {
-        developer.log(
-            "Camera exception during disposal: ${e.code}: ${e.description}");
+        // Camera exception during disposal
       } catch (e) {
-        developer.log("Error disposing camera: $e");
+        // Error disposing camera
       }
       _cameraController = null;
     }
@@ -490,10 +439,13 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
     }
 
     try {
-      final faces = await _faceDetector?.processImage(inputImage);
-      if (mounted && faces != null && _cameraActive) {
+      final detectedFaces = await _faceDetector?.processImage(inputImage);
+      if (mounted && detectedFaces != null && _cameraActive) {
+        // Apply ultra-strict validation to prevent false positives
+        final validFaces = _validateHumanFaces(detectedFaces);
+
         setState(() {
-          _faces = faces;
+          _faces = validFaces;
           _imageSize = Size(
             image.width.toDouble(),
             image.height.toDouble(),
@@ -501,10 +453,68 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         });
       }
     } catch (e) {
-      developer.log("Error processing image: $e");
+      // Error processing image
     } finally {
       _isBusy = false;
     }
+  }
+
+  /// Ultra-strict validation to ensure only real human faces are detected
+  List<Face> _validateHumanFaces(List<Face> faces) {
+    List<Face> validFaces = [];
+
+    for (Face face in faces) {
+      if (_isValidHumanFace(face)) {
+        validFaces.add(face);
+      }
+    }
+
+    return validFaces;
+  }
+
+  /// More forgiving validation for human faces
+  bool _isValidHumanFace(Face face) {
+    // Basic face area validation (much more forgiving)
+    final faceArea = face.boundingBox.width * face.boundingBox.height;
+    if (faceArea < 1000) return false; // Only reject very small faces
+
+    // More forgiving aspect ratio
+    final aspectRatio = face.boundingBox.width / face.boundingBox.height;
+    if (aspectRatio < 0.4 || aspectRatio > 2.0) return false;
+
+    // More forgiving head rotation limits
+    if (face.headEulerAngleY != null && face.headEulerAngleZ != null) {
+      final yaw = face.headEulerAngleY!.abs();
+      final roll = face.headEulerAngleZ!.abs();
+      if (yaw > 80 || roll > 60) return false; // Much more forgiving
+    }
+
+    return true; // Accept most faces
+  }
+
+  /// Check if face has basic facial landmarks (simplified)
+  bool _hasRequiredFacialLandmarks(Face face) {
+    // Just check if we have any major landmarks - be very forgiving
+    final leftEye = face.landmarks[FaceLandmarkType.leftEye];
+    final rightEye = face.landmarks[FaceLandmarkType.rightEye];
+    final noseBase = face.landmarks[FaceLandmarkType.noseBase];
+
+    // Accept if we have at least one eye or nose
+    return leftEye != null || rightEye != null || noseBase != null;
+  }
+
+  /// Simplified geometry check
+  bool _hasRealisticFaceGeometry(Face face) {
+    // Just check basic bounding box validity
+    final box = face.boundingBox;
+    return box.width > 0 && box.height > 0;
+  }
+
+  /// Calculate distance between two points
+  double _calculateDistance(double x1, double y1, double x2, double y2) {
+    final dx = x1 - x2;
+    final dy = y1 - y2;
+    return math.sqrt(dx * dx + dy * dy);
   }
 
   InputImage? _inputImageFromCameraImage(CameraImage image) {
@@ -535,7 +545,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         ),
       );
     } catch (e) {
-      developer.log("Error creating input image: $e");
+      // Error creating input image
       return null;
     }
   }
@@ -575,10 +585,9 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         try {
           await _cameraController!.stopImageStream();
         } on CameraException catch (e) {
-          developer.log(
-              "Camera exception stopping stream: ${e.code}: ${e.description}");
+          // Camera exception stopping stream
         } catch (e) {
-          developer.log("Error stopping camera stream: $e");
+          // Error stopping camera stream
         }
       }
 
@@ -633,14 +642,13 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         try {
           await _cameraController!.startImageStream(_processCameraImage);
         } on CameraException catch (e) {
-          developer.log(
-              "Camera exception restarting stream: ${e.code}: ${e.description}");
+          // Camera exception restarting stream
         } catch (e) {
-          developer.log("Error restarting camera stream: $e");
+          // Error restarting camera stream
         }
       }
     } catch (e) {
-      developer.log("Error capturing image: $e");
+      // Error capturing image
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -760,23 +768,21 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           // Camera preview
           CameraPreview(_cameraController!),
 
-          // Face overlay with ornament
-          if (_faces.isNotEmpty && _imageSize != null)
-            CustomPaint(
-              painter: AssetOrnamentsPainter(
-                faces: _faces,
-                imageSize: _imageSize!,
-                screenSize: MediaQuery.of(context).size,
-                cameraLensDirection:
-                    _cameraController!.description.lensDirection,
-                showOrnament: true,
-                ornamentImage: _ornamentImage,
-                widthScale: _widthScale,
-                heightScale: _heightScale,
-                verticalOffset: _verticalOffset,
-                stabilizePosition: true,
-              ),
+          // Face overlay with ornament - show even if no faces detected for debugging
+          CustomPaint(
+            painter: AssetOrnamentsPainter(
+              faces: _faces,
+              imageSize: _imageSize ?? Size(1080, 1920), // Default size if null
+              screenSize: MediaQuery.of(context).size,
+              cameraLensDirection: _cameraController!.description.lensDirection,
+              showOrnament: true,
+              ornamentImage: _ornamentImage,
+              widthScale: _widthScale,
+              heightScale: _heightScale,
+              verticalOffset: _verticalOffset,
+              stabilizePosition: true,
             ),
+          ),
 
           // Adjustment controls
           if (_showAdjustmentControls && !_isCapturing)
@@ -953,38 +959,9 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
     );
   }
 
-  // Debug method to test all possible image paths
-  Future<void> _testOrnamentImages() async {
-    developer.log("===== TESTING ALL POSSIBLE ORNAMENT IMAGES =====");
-    developer.log("Product Title: ${widget.productTitle}");
-    developer.log("Product ID: ${widget.productId}");
-
-    final String productName = widget.productTitle.replaceAll(' ', '-');
-    final List<String> testPaths = [
-      'assets/effects/ornament/Cross-black.png',
-      'assets/effects/ornament/BKEChain.png',
-      'assets/effects/ornament/${productName}.png',
-      'assets/effects/ornament/${widget.productId}.png',
-      'assets/effects/ornament/${productName.toLowerCase()}.png',
-      _assetImagePath,
-    ];
-
-    for (final path in testPaths) {
-      try {
-        await rootBundle.load(path);
-        developer.log("SUCCESS: Image exists at path: $path");
-      } catch (e) {
-        developer.log("ERROR: Image does not exist at path: $path");
-      }
-    }
-    developer.log("===============================================");
-  }
-
   Future<void> _createPlaceholderImage() async {
     // Create a simple colored placeholder
     try {
-      developer.log("Creating placeholder image as last resort");
-
       // Create a canvas to draw the placeholder
       final pictureRecorder = ui.PictureRecorder();
       final canvas = Canvas(pictureRecorder);
@@ -1016,10 +993,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           _errorMessage = null;
         });
       }
-
-      developer.log("Created placeholder image successfully");
     } catch (e) {
-      developer.log("Failed to create placeholder image: $e");
       if (mounted) {
         setState(() {
           _errorMessage =

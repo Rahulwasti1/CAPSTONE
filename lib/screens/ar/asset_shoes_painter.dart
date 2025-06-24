@@ -1,73 +1,112 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class AssetShoesPainter extends CustomPainter {
   final Offset leftFootPosition;
   final Offset rightFootPosition;
   final String shoeImagePath;
   final double shoeSize;
-
-  ui.Image? _shoeImage;
-  bool _isImageLoaded = false;
+  final ui.Image?
+      preloadedImage; // Accept preloaded image for better performance
 
   AssetShoesPainter({
     required this.leftFootPosition,
     required this.rightFootPosition,
     required this.shoeImagePath,
     required this.shoeSize,
-  }) {
-    _loadShoeImage();
-  }
-
-  Future<void> _loadShoeImage() async {
-    try {
-      final ByteData data = await rootBundle.load(shoeImagePath);
-      final Uint8List bytes = data.buffer.asUint8List();
-      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
-      final ui.FrameInfo frameInfo = await codec.getNextFrame();
-      _shoeImage = frameInfo.image;
-      _isImageLoaded = true;
-    } catch (e) {
-      // Handle image loading error gracefully
-      _isImageLoaded = false;
-    }
-  }
+    this.preloadedImage, // Optional preloaded image
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (!_isImageLoaded || _shoeImage == null) {
-      // Draw placeholder circles while image loads
-      _drawPlaceholderShoes(canvas);
-      return;
+    // Draw only ONE pair of shoes
+    if (preloadedImage != null) {
+      _drawSinglePairShoes(canvas);
+    } else {
+      _drawPlaceholderPair(canvas);
     }
 
-    // Calculate shoe dimensions based on size multiplier
-    final double baseShoeWidth = 120.0 * shoeSize;
-    final double baseShoeHeight = 80.0 * shoeSize;
+    // Remove debug elements for production
+    // _drawDebugMarkers(canvas);
+    // _drawStatus(canvas);
+  }
+
+  void _drawSinglePairShoes(Canvas canvas) {
+    // Calculate shoe dimensions
+    final double shoeWidth = 120.0 * shoeSize;
+    final double shoeHeight = 80.0 * shoeSize;
 
     // Draw left shoe
-    _drawShoe(
-      canvas,
-      leftFootPosition,
-      baseShoeWidth,
-      baseShoeHeight,
-      isLeftFoot: true,
-    );
+    _drawShoe(canvas, leftFootPosition, shoeWidth, shoeHeight,
+        isLeftFoot: true);
 
     // Draw right shoe
-    _drawShoe(
-      canvas,
-      rightFootPosition,
-      baseShoeWidth,
-      baseShoeHeight,
-      isLeftFoot: false,
+    _drawShoe(canvas, rightFootPosition, shoeWidth, shoeHeight,
+        isLeftFoot: false);
+  }
+
+  void _drawPlaceholderPair(Canvas canvas) {
+    // Calculate shoe dimensions
+    final double shoeWidth = 120.0 * shoeSize;
+    final double shoeHeight = 80.0 * shoeSize;
+
+    // Draw left placeholder
+    _drawVisibleShoe(canvas, leftFootPosition, shoeWidth, shoeHeight, true);
+
+    // Draw right placeholder
+    _drawVisibleShoe(canvas, rightFootPosition, shoeWidth, shoeHeight, false);
+  }
+
+  void _drawStatus(Canvas canvas) {
+    final statusText = preloadedImage != null
+        ? 'Image loaded: ${shoeImagePath.split('/').last}'
+        : 'Loading image: ${shoeImagePath.split('/').last}';
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: statusText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          shadows: [
+            Shadow(
+              offset: Offset(1, 1),
+              blurRadius: 3,
+              color: Colors.black,
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
     );
+
+    textPainter.layout();
+    textPainter.paint(canvas, const Offset(20, 120));
+  }
+
+  void _drawDebugMarkers(Canvas canvas) {
+    final debugPaint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.fill;
+
+    final areaPaint = Paint()
+      ..color = Colors.green.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    // Draw larger circles at foot positions for debugging
+    canvas.drawCircle(leftFootPosition, 12, debugPaint);
+    canvas.drawCircle(rightFootPosition, 12, debugPaint);
+
+    // Draw detection area circles
+    canvas.drawCircle(leftFootPosition, 60, areaPaint);
+    canvas.drawCircle(rightFootPosition, 60, areaPaint);
   }
 
   void _drawShoe(Canvas canvas, Offset position, double width, double height,
       {required bool isLeftFoot}) {
-    if (_shoeImage == null) return;
+    if (preloadedImage == null) return;
 
     final paint = Paint()
       ..filterQuality = FilterQuality.high
@@ -84,8 +123,8 @@ class AssetShoesPainter extends CustomPainter {
     final Rect srcRect = Rect.fromLTWH(
       0,
       0,
-      _shoeImage!.width.toDouble(),
-      _shoeImage!.height.toDouble(),
+      preloadedImage!.width.toDouble(),
+      preloadedImage!.height.toDouble(),
     );
 
     // Save canvas state for transformations
@@ -99,7 +138,7 @@ class AssetShoesPainter extends CustomPainter {
     }
 
     // Draw the shoe with smooth scaling
-    canvas.drawImageRect(_shoeImage!, srcRect, destRect, paint);
+    canvas.drawImageRect(preloadedImage!, srcRect, destRect, paint);
 
     // Restore canvas state
     canvas.restore();
@@ -124,34 +163,56 @@ class AssetShoesPainter extends CustomPainter {
     canvas.drawOval(shadowRect, shadowPaint);
   }
 
-  void _drawPlaceholderShoes(Canvas canvas) {
-    final placeholderPaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.6)
+  void _drawVisibleShoe(Canvas canvas, Offset position, double width,
+      double height, bool isLeftFoot) {
+    // Draw a clearly visible colored shoe shape
+    final shoePaint = Paint()
+      ..color = Colors.blue.withValues(alpha: 0.9)
       ..style = PaintingStyle.fill;
 
     final outlinePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = 4.0;
 
-    // Draw placeholder circles for shoes
-    final double radius = 40.0 * shoeSize;
+    // Draw shoe as rounded rectangle (shoe-like shape)
+    final shoeRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: position, width: width, height: height),
+      Radius.circular(height * 0.3),
+    );
 
-    // Left shoe placeholder
-    canvas.drawCircle(leftFootPosition, radius, placeholderPaint);
-    canvas.drawCircle(leftFootPosition, radius, outlinePaint);
+    // Fill
+    canvas.drawRRect(shoeRect, shoePaint);
 
-    // Right shoe placeholder
-    canvas.drawCircle(rightFootPosition, radius, placeholderPaint);
-    canvas.drawCircle(rightFootPosition, radius, outlinePaint);
+    // Outline
+    canvas.drawRRect(shoeRect, outlinePaint);
 
-    // Draw loading indicator
+    // Add shoe details (laces area)
+    final lacesPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.8)
+      ..style = PaintingStyle.fill;
+
+    final lacesRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(position.dx, position.dy - height * 0.1),
+        width: width * 0.6,
+        height: height * 0.4,
+      ),
+      Radius.circular(height * 0.1),
+    );
+
+    canvas.drawRRect(lacesRect, lacesPaint);
+
+    // Add shadow
+    _drawShoeShadow(canvas, position, width, height);
+
+    // Add "L/R" text for clarity
     final textPainter = TextPainter(
-      text: const TextSpan(
-        text: 'Loading...',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 12,
+      text: TextSpan(
+        text: isLeftFoot ? 'L' : 'R',
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -159,22 +220,11 @@ class AssetShoesPainter extends CustomPainter {
     );
 
     textPainter.layout();
-
-    // Draw loading text for left shoe
     textPainter.paint(
       canvas,
       Offset(
-        leftFootPosition.dx - textPainter.width / 2,
-        leftFootPosition.dy - textPainter.height / 2,
-      ),
-    );
-
-    // Draw loading text for right shoe
-    textPainter.paint(
-      canvas,
-      Offset(
-        rightFootPosition.dx - textPainter.width / 2,
-        rightFootPosition.dy - textPainter.height / 2,
+        position.dx - textPainter.width / 2,
+        position.dy - textPainter.height / 2,
       ),
     );
   }
