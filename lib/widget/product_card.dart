@@ -226,7 +226,8 @@ class ProductCard extends StatelessWidget {
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       return Image.network(
         imageUrl,
-        fit: BoxFit.cover,
+        fit: BoxFit
+            .contain, // Changed from cover to contain for better image visibility
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error loading network image: $error');
           return _tryDisplayImage(images, index + 1, context);
@@ -266,7 +267,8 @@ class ProductCard extends StatelessWidget {
       Uint8List decodedBytes = base64Decode(sanitized);
       return Image.memory(
         decodedBytes,
-        fit: BoxFit.cover,
+        fit: BoxFit
+            .contain, // Changed from cover to contain for better image visibility
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error displaying base64 image: $error');
           return _tryDisplayImage(images, index + 1, context);
@@ -598,7 +600,8 @@ class FlashSaleProductCard extends StatelessWidget {
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       return Image.network(
         imageUrl,
-        fit: BoxFit.cover,
+        fit: BoxFit
+            .contain, // Changed from cover to contain for better image visibility
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error loading network image: $error');
           return _tryDisplayImage(images, index + 1, context);
@@ -638,7 +641,8 @@ class FlashSaleProductCard extends StatelessWidget {
       Uint8List decodedBytes = base64Decode(sanitized);
       return Image.memory(
         decodedBytes,
-        fit: BoxFit.cover,
+        fit: BoxFit
+            .contain, // Changed from cover to contain for better image visibility
         errorBuilder: (context, error, stackTrace) {
           developer.log('Error displaying base64 image: $error');
           return _tryDisplayImage(images, index + 1, context);

@@ -119,29 +119,20 @@ class AssetShoesPainter extends CustomPainter {
       height: height,
     );
 
-    // Source rectangle (entire shoe image)
-    final Rect srcRect = Rect.fromLTWH(
-      0,
-      0,
-      preloadedImage!.width.toDouble(),
-      preloadedImage!.height.toDouble(),
-    );
+    // Source rectangle - crop the image to show only one shoe from the pair
+    // Assume the shoe asset contains a pair side by side
+    final double imageWidth = preloadedImage!.width.toDouble();
+    final double imageHeight = preloadedImage!.height.toDouble();
 
-    // Save canvas state for transformations
-    canvas.save();
-
-    // For right foot, flip the shoe horizontally if needed
-    if (!isLeftFoot) {
-      canvas.translate(position.dx, position.dy);
-      canvas.scale(-1, 1); // Flip horizontally
-      canvas.translate(-position.dx, -position.dy);
-    }
+    // For left foot, use left half of the image
+    // For right foot, use right half of the image
+    final Rect srcRect = isLeftFoot
+        ? Rect.fromLTWH(0, 0, imageWidth / 2, imageHeight) // Left half
+        : Rect.fromLTWH(
+            imageWidth / 2, 0, imageWidth / 2, imageHeight); // Right half
 
     // Draw the shoe with smooth scaling
     canvas.drawImageRect(preloadedImage!, srcRect, destRect, paint);
-
-    // Restore canvas state
-    canvas.restore();
 
     // Add subtle shadow for depth
     _drawShoeShadow(canvas, position, width, height);
