@@ -57,13 +57,14 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
   // Shoe rendering
   double _shoeSize = 1.0;
 
-  String _detectionStatus = 'Initializing...';
+  String _detectionStatus = 'Initializing camera...';
   String _effectiveImagePath = '';
 
   // Enhanced foot detection parameters
   static const double _minFootConfidence =
-      0.1; // Ultra low confidence for maximum detection
-  static const int _minConsecutiveDetections = 1; // Immediate detection
+      0.25; // Lower threshold for better detection
+  static const int _minConsecutiveDetections =
+      1; // Immediate detection for better responsiveness
   int _consecutiveDetections = 0;
   bool _feetDetected = false;
 
@@ -71,15 +72,15 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
   ui.Image? _preloadedShoeImage;
   bool _isImageLoading = true;
 
-  // Position smoothing
+  // Position smoothing - simplified for better responsiveness
   final List<Offset> _recentLeftFootPositions = [];
   final List<Offset> _recentRightFootPositions = [];
-  static const int _maxPositionHistory = 5;
+  static const int _maxPositionHistory = 3; // Reduced for faster response
 
   @override
   void initState() {
     super.initState();
-    _loadShoeImage();
+    // Only initialize camera first - load shoes after feet detection
     _initializeCamera();
   }
 
@@ -126,7 +127,7 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
         setState(() {
           _preloadedShoeImage = loadedImage;
           _isImageLoading = false;
-          _detectionStatus = 'Show your feet to try on shoes';
+          _detectionStatus = 'AR shoes ready - adjust size as needed';
         });
       }
     } catch (e) {
@@ -134,7 +135,7 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
         setState(() {
           _effectiveImagePath = 'assets/effects/shoes/Black.png';
           _isImageLoading = false;
-          _detectionStatus = 'Using default shoes - show your feet';
+          _detectionStatus = 'AR shoes ready - adjust size as needed';
         });
         // Load default image
         _loadImageFromAssets(_effectiveImagePath).then((image) {
@@ -279,7 +280,7 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
       if (mounted) {
         setState(() {
           _isCameraInitialized = true;
-          _detectionStatus = 'Stand in view and show your feet';
+          _detectionStatus = '📷 Point camera at your feet and step into view';
         });
 
         _startPoseDetection();
@@ -377,7 +378,7 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
 
     final pose = poses.first;
 
-    // Get foot-related landmarks for better accuracy
+    // Get foot-related landmarks - prioritize ankles as they're most reliable
     PoseLandmark? leftAnkle = pose.landmarks[PoseLandmarkType.leftAnkle];
     PoseLandmark? rightAnkle = pose.landmarks[PoseLandmarkType.rightAnkle];
     final leftHeel = pose.landmarks[PoseLandmarkType.leftHeel];
@@ -385,40 +386,57 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
     final leftFootIndex = pose.landmarks[PoseLandmarkType.leftFootIndex];
     final rightFootIndex = pose.landmarks[PoseLandmarkType.rightFootIndex];
 
-    // Validate foot detection with multiple landmarks
-    bool leftFootValid =
-        _validateFootLandmarks(leftAnkle, leftHeel, leftFootIndex);
-    bool rightFootValid =
-        _validateFootLandmarks(rightAnkle, rightHeel, rightFootIndex);
+    // Primary validation: check if we have at least one reliable ankle
+    bool hasValidAnkles =
+        (leftAnkle != null && leftAnkle.likelihood >= _minFootConfidence) ||
+            (rightAnkle != null && rightAnkle.likelihood >= _minFootConfidence);
 
-    if (!leftFootValid && !rightFootValid) {
+    if (!hasValidAnkles) {
       _consecutiveDetections = 0;
       setState(() {
-        _detectionStatus = 'Show your feet clearly in the camera';
+        _detectionStatus =
+            'Position your feet in the camera view - point camera down';
         _feetDetected = false;
       });
       return;
     }
 
-    // Allow detection even if only one foot is valid (use ankle position for missing foot)
-    if (!leftFootValid && rightFootValid && rightAnkle != null) {
-      // Estimate left foot position from right foot
-      leftAnkle = PoseLandmark(
-        type: PoseLandmarkType.leftAnkle,
-        x: rightAnkle.x - 0.2, // Approximate left foot position
-        y: rightAnkle.y,
-        z: rightAnkle.z,
-        likelihood: rightAnkle.likelihood * 0.8,
-      );
-    } else if (!rightFootValid && leftFootValid && leftAnkle != null) {
-      // Estimate right foot position from left foot
-      rightAnkle = PoseLandmark(
-        type: PoseLandmarkType.rightAnkle,
-        x: leftAnkle.x + 0.2, // Approximate right foot position
-        y: leftAnkle.y,
-        z: leftAnkle.z,
-        likelihood: leftAnkle.likelihood * 0.8,
-      );
+    // Ensure we have both foot positions - estimate missing positions if needed
+    if (leftAnkle == null || leftAnkle.likelihood < _minFootConfidence) {
+      if (rightAnkle != null && rightAnkle.likelihood >= _minFootConfidence) {
+        // Estimate left foot position from right foot
+        leftAnkle = PoseLandmark(
+          type: PoseLandmarkType.leftAnkle,
+          x: rightAnkle.x - 0.15, // Approximate left foot position
+          y: rightAnkle.y,
+          z: rightAnkle.z,
+          likelihood: rightAnkle.likelihood * 0.7,
+        );
+      }
+    }
+
+    if (rightAnkle == null || rightAnkle.likelihood < _minFootConfidence) {
+      if (leftAnkle != null && leftAnkle.likelihood >= _minFootConfidence) {
+        // Estimate right foot position from left foot
+        rightAnkle = PoseLandmark(
+          type: PoseLandmarkType.rightAnkle,
+          x: leftAnkle.x + 0.15, // Approximate right foot position
+          y: leftAnkle.y,
+          z: leftAnkle.z,
+          likelihood: leftAnkle.likelihood * 0.7,
+        );
+      }
+    }
+
+    // Final check - ensure we have valid positions
+    if (leftAnkle == null || rightAnkle == null) {
+      _consecutiveDetections = 0;
+      setState(() {
+        _detectionStatus =
+            '🦶 Move closer and show both feet clearly in camera';
+        _feetDetected = false;
+      });
+      return;
     }
 
     // Calculate optimal foot positions using multiple landmarks
@@ -427,6 +445,10 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
         leftFootIndex, imageWidth, imageHeight, screenSize, true);
     final rightScreenPos = _calculateOptimalFootPosition(rightAnkle!, rightHeel,
         rightFootIndex, imageWidth, imageHeight, screenSize, false);
+
+    // Estimate foot size for automatic scaling
+    _estimateAndAdjustShoeSize(leftAnkle!, rightAnkle!, leftHeel, rightHeel,
+        leftFootIndex, rightFootIndex);
 
     // Apply position smoothing
     _updatePositionHistory(leftScreenPos, rightScreenPos);
@@ -438,27 +460,27 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
       setState(() {
         _leftFootPosition = _getSmoothedPosition(_recentLeftFootPositions);
         _rightFootPosition = _getSmoothedPosition(_recentRightFootPositions);
-        _detectionStatus =
-            'Feet detected - AR shoes active (Image: ${_preloadedShoeImage != null ? "✓" : "✗"})';
         _feetDetected = true;
       });
+
+      // Load shoes only after feet are detected
+      if (_preloadedShoeImage == null && !_isImageLoading) {
+        setState(() {
+          _detectionStatus = '✅ Feet detected! Loading shoes...';
+        });
+        _loadShoeImage();
+      } else if (_preloadedShoeImage != null) {
+        setState(() {
+          _detectionStatus =
+              '✅ AR shoes active - adjust size with slider below';
+        });
+      }
     } else {
       setState(() {
-        _detectionStatus =
-            'Stabilizing foot detection... $_consecutiveDetections/$_minConsecutiveDetections';
+        _detectionStatus = '👟 Detecting feet... keep steady';
         _feetDetected = false;
       });
     }
-  }
-
-  bool _validateFootLandmarks(
-      PoseLandmark? ankle, PoseLandmark? heel, PoseLandmark? footIndex) {
-    // Accept if we have ANY foot-related landmark
-    if (ankle != null && ankle.likelihood >= _minFootConfidence) return true;
-    if (heel != null && heel.likelihood >= 0.05) return true;
-    if (footIndex != null && footIndex.likelihood >= 0.05) return true;
-
-    return false;
   }
 
   Offset _calculateOptimalFootPosition(
@@ -508,17 +530,18 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
     final bool isFrontCamera = _cameras[_selectedCameraIndex].lensDirection ==
         CameraLensDirection.front;
 
-    // Convert normalized coordinates (0-1) to screen coordinates
+    // MLKit provides normalized coordinates (0-1), convert to screen coordinates
     double screenX = x * screenSize.width;
     double screenY = y * screenSize.height;
 
-    // Mirror for front camera
+    // Mirror for front camera to match user's view
     if (isFrontCamera) {
       screenX = screenSize.width - screenX;
     }
 
-    // Adjust for foot position - shoes should be centered on feet
-    screenY += 10; // Small offset to center shoes on feet
+    // Clamp coordinates to screen bounds with margins
+    screenX = screenX.clamp(50.0, screenSize.width - 50.0);
+    screenY = screenY.clamp(100.0, screenSize.height - 100.0);
 
     return Offset(screenX, screenY);
   }
@@ -547,6 +570,54 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
     }
 
     return Offset(totalX / positions.length, totalY / positions.length);
+  }
+
+  void _estimateAndAdjustShoeSize(
+    PoseLandmark leftAnkle,
+    PoseLandmark rightAnkle,
+    PoseLandmark? leftHeel,
+    PoseLandmark? rightHeel,
+    PoseLandmark? leftFootIndex,
+    PoseLandmark? rightFootIndex,
+  ) {
+    // Only auto-adjust if we have good landmark data
+    double? estimatedSize;
+
+    // Method 1: Use distance between feet to estimate size
+    final feetDistance = (leftAnkle.x - rightAnkle.x).abs();
+    if (feetDistance > 0.05 && feetDistance < 0.4) {
+      // Typical foot separation suggests shoe size
+      estimatedSize = 0.8 + (feetDistance * 2.0); // Scale based on separation
+    }
+
+    // Method 2: Use foot length if we have heel and toe landmarks
+    if (leftHeel != null && leftFootIndex != null) {
+      final leftFootLength = ((leftHeel.x - leftFootIndex.x).abs() +
+          (leftHeel.y - leftFootIndex.y).abs());
+      if (leftFootLength > 0.02 && leftFootLength < 0.2) {
+        final sizeFromLength = 0.5 + (leftFootLength * 8.0);
+        estimatedSize = estimatedSize != null
+            ? (estimatedSize + sizeFromLength) /
+                2 // Average if both methods work
+            : sizeFromLength;
+      }
+    }
+
+    // Apply gradual size adjustment to avoid jumping
+    if (estimatedSize != null) {
+      estimatedSize = estimatedSize.clamp(0.5, 2.0);
+      final targetSize = estimatedSize;
+      final currentSize = _shoeSize;
+
+      // Gradual adjustment - only adjust if significantly different
+      if ((targetSize - currentSize).abs() > 0.15) {
+        final adjustedSize = currentSize + (targetSize - currentSize) * 0.1;
+
+        setState(() {
+          _shoeSize = adjustedSize.clamp(0.5, 2.0);
+        });
+      }
+    }
   }
 
   Future<void> _switchCamera() async {
@@ -614,23 +685,22 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
                   child: CameraPreview(_cameraController!),
                 ),
 
-                // AR Shoes Overlay
-                // Always show shoes - either at detected positions or fallback positions
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: AssetShoesPainter(
-                      leftFootPosition: _leftFootPosition ??
-                          Offset(MediaQuery.of(context).size.width * 0.35,
-                              MediaQuery.of(context).size.height * 0.8),
-                      rightFootPosition: _rightFootPosition ??
-                          Offset(MediaQuery.of(context).size.width * 0.65,
-                              MediaQuery.of(context).size.height * 0.8),
-                      shoeImagePath: _effectiveImagePath,
-                      shoeSize: _shoeSize,
-                      preloadedImage: _preloadedShoeImage,
+                // AR Shoes Overlay - Only show when feet are detected AND shoes are loaded
+                if (_feetDetected &&
+                    _preloadedShoeImage != null &&
+                    _leftFootPosition != null &&
+                    _rightFootPosition != null)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: AssetShoesPainter(
+                        leftFootPosition: _leftFootPosition!,
+                        rightFootPosition: _rightFootPosition!,
+                        shoeImagePath: _effectiveImagePath,
+                        shoeSize: _shoeSize,
+                        preloadedImage: _preloadedShoeImage,
+                      ),
                     ),
                   ),
-                ),
 
                 // Loading indicator for image
                 if (_isImageLoading)
@@ -721,17 +791,31 @@ class _ARShoesScreenState extends State<ARShoesScreen> {
                                 const Text('50%',
                                     style: TextStyle(color: Colors.white70)),
                                 Expanded(
-                                  child: Slider(
-                                    value: _shoeSize,
-                                    min: 0.5,
-                                    max: 2.0,
-                                    divisions: 15,
-                                    activeColor: Colors.blue,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _shoeSize = value;
-                                      });
-                                    },
+                                  child: Column(
+                                    children: [
+                                      Slider(
+                                        value: _shoeSize,
+                                        min: 0.5,
+                                        max: 2.0,
+                                        divisions: 30, // More precision
+                                        activeColor: Colors.blue,
+                                        inactiveColor:
+                                            Colors.blue.withValues(alpha: 0.3),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _shoeSize = value;
+                                          });
+                                        },
+                                      ),
+                                      Text(
+                                        '${(_shoeSize * 100).toInt()}%',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const Text('200%',

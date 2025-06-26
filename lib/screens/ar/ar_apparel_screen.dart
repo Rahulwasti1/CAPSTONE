@@ -58,6 +58,19 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
   final List<double> _recentTorsoHeights = [];
   static const int _maxPositionHistory = 5;
 
+  // Enhanced body measurements
+  final List<double> _recentShoulderWidths = [];
+  final List<double> _recentChestWidths = [];
+  final List<Offset> _recentShoulderCenters = [];
+  double _bodyWidthRatio = 1.0; // Width adjustment
+  double _bodyHeightRatio = 1.0; // Height adjustment
+
+  // Improved body detection
+  Offset? _shoulderCenter;
+  double _shoulderWidth = 0;
+  double _chestWidth = 0;
+  bool _hasAccurateBodyMeasurements = false;
+
   // Image loading
   ui.Image? _preloadedImage;
   bool _isImageReady = false;
@@ -465,17 +478,20 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
     if (poses.isEmpty) {
       setState(() {
         _detectionStatus = 'No person detected - step into view';
+        _hasAccurateBodyMeasurements = false;
       });
       return;
     }
 
     final pose = poses.first;
 
-    // Get key body landmarks for apparel placement
+    // Get comprehensive body landmarks for accurate measurements
     final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
     final leftHip = pose.landmarks[PoseLandmarkType.leftHip];
     final rightHip = pose.landmarks[PoseLandmarkType.rightHip];
+    final leftElbow = pose.landmarks[PoseLandmarkType.leftElbow];
+    final rightElbow = pose.landmarks[PoseLandmarkType.rightElbow];
 
     if (leftShoulder == null ||
         rightShoulder == null ||
@@ -483,17 +499,20 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
         rightHip == null) {
       setState(() {
         _detectionStatus = 'Turn to face the camera clearly';
+        _hasAccurateBodyMeasurements = false;
       });
       return;
     }
 
-    // Check confidence levels
-    if (leftShoulder.likelihood < 0.6 ||
-        rightShoulder.likelihood < 0.6 ||
-        leftHip.likelihood < 0.6 ||
-        rightHip.likelihood < 0.6) {
+    // Enhanced confidence checking
+    if (leftShoulder.likelihood < 0.5 ||
+        rightShoulder.likelihood < 0.5 ||
+        leftHip.likelihood < 0.5 ||
+        rightHip.likelihood < 0.5) {
       setState(() {
-        _detectionStatus = 'Stand clearly in front of camera';
+        _detectionStatus =
+            'Stand clearly in front of camera for better detection';
+        _hasAccurateBodyMeasurements = false;
       });
       return;
     }
@@ -529,7 +548,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       screenSize,
     );
 
-    // Calculate torso dimensions and center
+    // Calculate enhanced body measurements
     final shoulderCenter = Offset(
       (leftShoulderScreen.dx + rightShoulderScreen.dx) / 2,
       (leftShoulderScreen.dy + rightShoulderScreen.dy) / 2,
@@ -545,14 +564,44 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       (shoulderCenter.dy + hipCenter.dy) / 2,
     );
 
-    final torsoWidth = (rightShoulderScreen.dx - leftShoulderScreen.dx).abs();
+    // Calculate precise body measurements
+    final shoulderWidth =
+        (rightShoulderScreen.dx - leftShoulderScreen.dx).abs();
+    final torsoWidth = shoulderWidth * 0.9; // Slight adjustment for natural fit
     final torsoHeight = (hipCenter.dy - shoulderCenter.dy).abs();
 
-    // Apply position smoothing
-    _updatePositionHistory(torsoCenter, torsoWidth, torsoHeight);
+    // Estimate chest width (slightly wider than shoulder for natural fit)
+    double chestWidth = shoulderWidth;
+    if (leftElbow != null &&
+        rightElbow != null &&
+        leftElbow.likelihood > 0.4 &&
+        rightElbow.likelihood > 0.4) {
+      final leftElbowScreen = _convertToScreenCoordinates(
+          leftElbow.x, leftElbow.y, imageWidth, imageHeight, screenSize);
+      final rightElbowScreen = _convertToScreenCoordinates(
+          rightElbow.x, rightElbow.y, imageWidth, imageHeight, screenSize);
+
+      // Use elbow positions to estimate chest width more accurately
+      final elbowDistance = (rightElbowScreen.dx - leftElbowScreen.dx).abs();
+      chestWidth = (shoulderWidth + elbowDistance * 0.8) / 2;
+    }
+
+    // Apply enhanced position smoothing with body measurements
+    _updateEnhancedPositionHistory(torsoCenter, torsoWidth, torsoHeight,
+        shoulderCenter, shoulderWidth, chestWidth);
+
+    // Update smoothed values for rendering
+    _torsoCenter = _getSmoothedOffset(_recentTorsoPositions);
+    _torsoWidth = _getSmoothedValue(_recentTorsoWidths);
+    _torsoHeight = _getSmoothedValue(_recentTorsoHeights);
+    _shoulderCenter = _getSmoothedOffset(_recentShoulderCenters);
+    _shoulderWidth = _getSmoothedValue(_recentShoulderWidths);
+    _chestWidth = _getSmoothedValue(_recentChestWidths);
 
     setState(() {
-      _detectionStatus = 'Body detected - AR apparel active';
+      _detectionStatus =
+          '✅ Perfect body detection - adjust fit with controls below';
+      _hasAccurateBodyMeasurements = true;
     });
   }
 
@@ -588,6 +637,45 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       _recentTorsoWidths.removeAt(0);
       _recentTorsoHeights.removeAt(0);
     }
+  }
+
+  void _updateEnhancedPositionHistory(
+      Offset torsoPos,
+      double width,
+      double height,
+      Offset shoulderPos,
+      double shoulderWidth,
+      double chestWidth) {
+    _recentTorsoPositions.add(torsoPos);
+    _recentTorsoWidths.add(width);
+    _recentTorsoHeights.add(height);
+    _recentShoulderWidths.add(shoulderWidth);
+    _recentChestWidths.add(chestWidth);
+    _recentShoulderCenters.add(shoulderPos);
+
+    if (_recentTorsoPositions.length > _maxPositionHistory) {
+      _recentTorsoPositions.removeAt(0);
+      _recentTorsoWidths.removeAt(0);
+      _recentTorsoHeights.removeAt(0);
+      _recentShoulderWidths.removeAt(0);
+      _recentChestWidths.removeAt(0);
+      _recentShoulderCenters.removeAt(0);
+    }
+  }
+
+  Offset? _getSmoothedOffset(List<Offset> positions) {
+    if (positions.isEmpty) return null;
+    double x = 0, y = 0;
+    for (var pos in positions) {
+      x += pos.dx;
+      y += pos.dy;
+    }
+    return Offset(x / positions.length, y / positions.length);
+  }
+
+  double _getSmoothedValue(List<double> values) {
+    if (values.isEmpty) return 0;
+    return values.reduce((a, b) => a + b) / values.length;
   }
 
   Future<void> _switchCamera() async {
@@ -660,17 +748,21 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
                     _torsoCenter != null &&
                     _torsoWidth > 0 &&
                     _torsoHeight > 0 &&
-                    _isImageReady)
+                    _isImageReady &&
+                    _hasAccurateBodyMeasurements)
                   Positioned.fill(
                     child: CustomPaint(
                       painter: AssetApparelPainter(
                         torsoCenter: _torsoCenter!,
-                        torsoWidth: _torsoWidth,
-                        torsoHeight: _torsoHeight,
+                        torsoWidth: _torsoWidth * _bodyWidthRatio,
+                        torsoHeight: _torsoHeight * _bodyHeightRatio,
                         apparelImagePath: _effectiveImagePath,
                         apparelSize: _apparelSize,
                         apparelType: widget.apparelType,
                         preloadedImage: _preloadedImage,
+                        shoulderCenter: _shoulderCenter,
+                        shoulderWidth: _shoulderWidth,
+                        chestWidth: _chestWidth,
                       ),
                     ),
                   ),
@@ -720,41 +812,166 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
                   right: 20,
                   child: Column(
                     children: [
-                      // Size Control
+                      // Enhanced Size Controls
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
+                          color: Colors.black.withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
                           children: [
                             Text(
-                              '${widget.apparelType.toUpperCase()} Size',
+                              '${widget.apparelType.toUpperCase()} Perfect Fit Controls',
                               style: const TextStyle(
-                                  color: Colors.white, fontSize: 16),
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
+
+                            // Overall Size Control
                             Row(
                               children: [
-                                const Text('50%',
-                                    style: TextStyle(color: Colors.white70)),
+                                const Icon(Icons.straighten,
+                                    color: Colors.white70, size: 16),
+                                const SizedBox(width: 8),
+                                const Text('Overall Size:',
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 14)),
+                                const SizedBox(width: 8),
                                 Expanded(
-                                  child: Slider(
-                                    value: _apparelSize,
-                                    min: 0.5,
-                                    max: 2.0,
-                                    divisions: 15,
-                                    activeColor: Colors.purple,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _apparelSize = value;
-                                      });
-                                    },
+                                  child: Column(
+                                    children: [
+                                      Slider(
+                                        value: _apparelSize,
+                                        min: 0.5,
+                                        max: 2.0,
+                                        divisions: 30,
+                                        activeColor: Colors.purple,
+                                        inactiveColor: Colors.purple
+                                            .withValues(alpha: 0.3),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _apparelSize = value;
+                                          });
+                                        },
+                                      ),
+                                      Text(
+                                        '${(_apparelSize * 100).toInt()}%',
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 12),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const Text('200%',
-                                    style: TextStyle(color: Colors.white70)),
+                              ],
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // Width Adjustment Control
+                            Row(
+                              children: [
+                                const Icon(Icons.swap_horiz,
+                                    color: Colors.white70, size: 16),
+                                const SizedBox(width: 8),
+                                const Text('Width Fit:',
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 14)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    children: [
+                                      Slider(
+                                        value: _bodyWidthRatio,
+                                        min: 0.7,
+                                        max: 1.4,
+                                        divisions: 35,
+                                        activeColor: Colors.blue,
+                                        inactiveColor:
+                                            Colors.blue.withValues(alpha: 0.3),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _bodyWidthRatio = value;
+                                          });
+                                        },
+                                      ),
+                                      Text(
+                                        '${(_bodyWidthRatio * 100).toInt()}%',
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // Height Adjustment Control
+                            Row(
+                              children: [
+                                const Icon(Icons.swap_vert,
+                                    color: Colors.white70, size: 16),
+                                const SizedBox(width: 8),
+                                const Text('Length Fit:',
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 14)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    children: [
+                                      Slider(
+                                        value: _bodyHeightRatio,
+                                        min: 0.7,
+                                        max: 1.4,
+                                        divisions: 35,
+                                        activeColor: Colors.green,
+                                        inactiveColor:
+                                            Colors.green.withValues(alpha: 0.3),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _bodyHeightRatio = value;
+                                          });
+                                        },
+                                      ),
+                                      Text(
+                                        '${(_bodyHeightRatio * 100).toInt()}%',
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // Quick fit buttons
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildQuickFitButton('Slim Fit', () {
+                                  setState(() {
+                                    _bodyWidthRatio = 0.85;
+                                    _bodyHeightRatio = 1.1;
+                                  });
+                                }),
+                                _buildQuickFitButton('Regular', () {
+                                  setState(() {
+                                    _bodyWidthRatio = 1.0;
+                                    _bodyHeightRatio = 1.0;
+                                  });
+                                }),
+                                _buildQuickFitButton('Relaxed', () {
+                                  setState(() {
+                                    _bodyWidthRatio = 1.2;
+                                    _bodyHeightRatio = 0.9;
+                                  });
+                                }),
                               ],
                             ),
                           ],
@@ -820,6 +1037,27 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildQuickFitButton(String label, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.2),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }

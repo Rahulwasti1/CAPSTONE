@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
-import 'package:capstone/provider/cart_provider.dart';
+import 'package:capstone/providers/cart_provider.dart';
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/widget/user_appbar.dart';
 import 'dart:convert';
@@ -41,7 +41,7 @@ class CartScreen extends StatelessWidget {
                           padding: EdgeInsets.symmetric(horizontal: 16.w),
                           itemCount: cart.items.length,
                           itemBuilder: (ctx, i) {
-                            final cartItem = cart.items.values.toList()[i];
+                            final cartItem = cart.items[i];
                             return CartItemWidget(cartItem: cartItem);
                           },
                         ),
@@ -149,7 +149,7 @@ class CartItemWidget extends StatelessWidget {
             ),
             onPressed: () {
               Provider.of<CartProvider>(context, listen: false)
-                  .removeItem(cartItem.id);
+                  .removeItem(cartItem.id, cartItem.size, cartItem.color);
             },
           ),
         ],
@@ -262,7 +262,8 @@ class QuantityControls extends StatelessWidget {
             icon: const Icon(Icons.remove),
             onPressed: () {
               Provider.of<CartProvider>(context, listen: false)
-                  .decrementQuantity(cartItem.id);
+                  .decrementQuantity(
+                      cartItem.id, cartItem.size, cartItem.color);
             },
           ),
           Container(
@@ -280,7 +281,8 @@ class QuantityControls extends StatelessWidget {
             icon: const Icon(Icons.add),
             onPressed: () {
               Provider.of<CartProvider>(context, listen: false)
-                  .incrementQuantity(cartItem.id);
+                  .incrementQuantity(
+                      cartItem.id, cartItem.size, cartItem.color);
             },
           ),
         ],

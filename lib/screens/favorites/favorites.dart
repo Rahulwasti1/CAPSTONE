@@ -1,5 +1,5 @@
-import 'package:capstone/provider/favourite_provider.dart';
-import 'package:capstone/provider/cart_provider.dart';
+import 'package:capstone/providers/favorites_provider.dart';
+import 'package:capstone/providers/cart_provider.dart';
 import 'package:capstone/widget/user_appbar.dart';
 import 'package:capstone/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
@@ -30,58 +30,29 @@ class UserFavorites extends StatelessWidget {
   }
 
   Widget _buildFavoritesContent(BuildContext context) {
-    final favoriteProvider = Provider.of<FavoriteProvider>(context);
+    final favoriteProvider = Provider.of<FavoritesProvider>(context);
     final theme = Theme.of(context);
-    final List<String> favoriteProductIds =
-        favoriteProvider.favoriteProductIds();
+    final List<Map<String, dynamic>> favoriteProducts =
+        favoriteProvider.favoriteItems;
 
-    if (favoriteProductIds.isEmpty) {
+    if (favoriteProducts.isEmpty) {
       return _buildEmptyFavorites(context);
     }
 
-    return FutureBuilder<List<Map<String, dynamic>>>(
-        future: _fetchFavoriteProducts(favoriteProductIds),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: CircularProgressIndicator(
-                color: Colors.brown,
-              ),
-            );
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Error loading your favorites',
-                style: TextStyle(
-                  color: theme.textTheme.bodyLarge?.color,
-                ),
-              ),
-            );
-          }
-
-          final favoriteProducts = snapshot.data ?? [];
-
-          if (favoriteProducts.isEmpty) {
-            return _buildEmptyFavorites(context);
-          }
-
-          return GridView.builder(
-            padding: EdgeInsets.all(16.r),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.7,
-              crossAxisSpacing: 16.w,
-              mainAxisSpacing: 16.h,
-            ),
-            itemCount: favoriteProducts.length,
-            itemBuilder: (context, index) {
-              final product = favoriteProducts[index];
-              return _buildFavoriteItem(context, product, favoriteProvider);
-            },
-          );
-        });
+    return GridView.builder(
+      padding: EdgeInsets.all(16.r),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.7,
+        crossAxisSpacing: 16.w,
+        mainAxisSpacing: 16.h,
+      ),
+      itemCount: favoriteProducts.length,
+      itemBuilder: (context, index) {
+        final product = favoriteProducts[index];
+        return _buildFavoriteItem(context, product, favoriteProvider);
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> _fetchFavoriteProducts(
@@ -229,7 +200,7 @@ class UserFavorites extends StatelessWidget {
   }
 
   Widget _buildFavoriteItem(BuildContext context, Map<String, dynamic> product,
-      FavoriteProvider favoriteProvider) {
+      FavoritesProvider favoriteProvider) {
     final theme = Theme.of(context);
     final String productId = product['id'] as String;
     final String productTitle =
@@ -387,7 +358,7 @@ class UserFavorites extends StatelessWidget {
                           size: 20.sp,
                         ),
                         onPressed: () {
-                          favoriteProvider.toggleFavorite(productId);
+                          favoriteProvider.removeFavorite(productId);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(

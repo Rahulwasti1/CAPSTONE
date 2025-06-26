@@ -474,19 +474,19 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
 
   /// More forgiving validation for human faces
   bool _isValidHumanFace(Face face) {
-    // Basic face area validation (much more forgiving)
+    // Basic face area validation (more forgiving)
     final faceArea = face.boundingBox.width * face.boundingBox.height;
-    if (faceArea < 1000) return false; // Only reject very small faces
+    if (faceArea < 800) return false; // Even more forgiving
 
     // More forgiving aspect ratio
     final aspectRatio = face.boundingBox.width / face.boundingBox.height;
-    if (aspectRatio < 0.4 || aspectRatio > 2.0) return false;
+    if (aspectRatio < 0.3 || aspectRatio > 2.5) return false; // Very forgiving
 
-    // More forgiving head rotation limits
+    // Very forgiving head rotation limits
     if (face.headEulerAngleY != null && face.headEulerAngleZ != null) {
       final yaw = face.headEulerAngleY!.abs();
       final roll = face.headEulerAngleZ!.abs();
-      if (yaw > 80 || roll > 60) return false; // Much more forgiving
+      if (yaw > 90 || roll > 70) return false; // Very forgiving
     }
 
     return true; // Accept most faces
@@ -779,7 +779,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
               ornamentImage: _ornamentImage,
               widthScale: _widthScale,
               heightScale: _heightScale,
-              verticalOffset: _verticalOffset,
+              verticalOffset: 0.05, // Much smaller offset for neck placement
               stabilizePosition: true,
             ),
           ),

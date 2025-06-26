@@ -1,4 +1,4 @@
-import 'package:capstone/provider/cart_provider.dart';
+import 'package:capstone/providers/cart_provider.dart';
 import 'package:capstone/widget/user_appbar.dart';
 import 'package:capstone/screens/categories/categories.dart';
 import 'package:capstone/providers/theme_provider.dart';
@@ -34,8 +34,8 @@ class UserCart extends StatelessWidget {
   Widget _buildCartContent(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
 
-    // Get items as a list from the map
-    final List<CartItem> cartItems = cartProvider.items.values.toList();
+    // Get items directly as they're already a list
+    final List<CartItem> cartItems = cartProvider.items;
 
     if (cartItems.isEmpty) {
       return _buildEmptyCart(context);
@@ -329,7 +329,8 @@ class UserCart extends StatelessWidget {
                           size: 20.sp,
                         ),
                         onPressed: () {
-                          cartProvider.removeItem(item.id);
+                          cartProvider.removeItem(
+                              item.id, item.size, item.color);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -380,7 +381,8 @@ class UserCart extends StatelessWidget {
                         context: context,
                         icon: Icons.remove,
                         onPressed: () {
-                          cartProvider.decrementQuantity(item.id);
+                          cartProvider.decrementQuantity(
+                              item.id, item.size, item.color);
                         },
                       ),
                       Container(
@@ -400,7 +402,8 @@ class UserCart extends StatelessWidget {
                         context: context,
                         icon: Icons.add,
                         onPressed: () {
-                          cartProvider.incrementQuantity(item.id);
+                          cartProvider.incrementQuantity(
+                              item.id, item.size, item.color);
                         },
                       ),
                     ],
@@ -646,7 +649,7 @@ class UserCart extends StatelessWidget {
                 onPressed: () {
                   final cartProvider =
                       Provider.of<CartProvider>(context, listen: false);
-                  cartProvider.clear();
+                  cartProvider.clearCart();
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

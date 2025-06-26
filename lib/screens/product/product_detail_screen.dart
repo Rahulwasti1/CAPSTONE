@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:capstone/constants/colors.dart';
-import 'package:capstone/provider/cart_provider.dart';
+import 'package:capstone/providers/cart_provider.dart';
 import 'package:capstone/screens/camera/camera_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

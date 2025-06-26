@@ -1,8 +1,8 @@
 import 'package:capstone/admin/admin_navbar.dart';
 import 'package:capstone/login_screen/onboarding1.dart';
 import 'package:capstone/navigation_bar.dart';
-import 'package:capstone/provider/cart_provider.dart';
-import 'package:capstone/provider/favourite_provider.dart';
+import 'package:capstone/providers/cart_provider.dart';
+import 'package:capstone/providers/favorites_provider.dart';
 import 'package:capstone/providers/theme_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -52,12 +52,16 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) {
             final cartProvider = CartProvider();
+            // Load cart data when app starts
+            cartProvider.loadCart();
             return cartProvider;
           },
         ),
         ChangeNotifierProvider(
           create: (_) {
-            final favoriteProvider = FavoriteProvider();
+            final favoriteProvider = FavoritesProvider();
+            // Load favorites data when app starts
+            favoriteProvider.loadFavorites();
             return favoriteProvider;
           },
         ),

@@ -32,9 +32,12 @@ class AssetShoesPainter extends CustomPainter {
   }
 
   void _drawSinglePairShoes(Canvas canvas) {
-    // Calculate shoe dimensions
-    final double shoeWidth = 120.0 * shoeSize;
-    final double shoeHeight = 80.0 * shoeSize;
+    // Calculate shoe dimensions based on realistic foot proportions
+    final double baseShoeWidth = 140.0; // Increased base size
+    final double baseShoeHeight = 90.0;
+
+    final double shoeWidth = baseShoeWidth * shoeSize;
+    final double shoeHeight = baseShoeHeight * shoeSize;
 
     // Draw left shoe
     _drawShoe(canvas, leftFootPosition, shoeWidth, shoeHeight,
@@ -46,9 +49,12 @@ class AssetShoesPainter extends CustomPainter {
   }
 
   void _drawPlaceholderPair(Canvas canvas) {
-    // Calculate shoe dimensions
-    final double shoeWidth = 120.0 * shoeSize;
-    final double shoeHeight = 80.0 * shoeSize;
+    // Calculate shoe dimensions - match the main shoe drawing
+    final double baseShoeWidth = 140.0;
+    final double baseShoeHeight = 90.0;
+
+    final double shoeWidth = baseShoeWidth * shoeSize;
+    final double shoeHeight = baseShoeHeight * shoeSize;
 
     // Draw left placeholder
     _drawVisibleShoe(canvas, leftFootPosition, shoeWidth, shoeHeight, true);

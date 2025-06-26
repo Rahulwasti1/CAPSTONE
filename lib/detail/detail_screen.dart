@@ -1,7 +1,7 @@
 import 'package:capstone/constants/colors.dart';
 import 'package:capstone/detail/image_slider.dart';
-import 'package:capstone/provider/cart_provider.dart';
-import 'package:capstone/provider/favourite_provider.dart';
+import 'package:capstone/providers/cart_provider.dart';
+import 'package:capstone/providers/favorites_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
@@ -98,7 +98,7 @@ class _DetailScreenState extends State<DetailScreen>
     String productId = widget.product['id'] ?? DateTime.now().toString();
 
     // Access providers
-    final favoriteProvider = Provider.of<FavoriteProvider>(context);
+    final favoriteProvider = Provider.of<FavoritesProvider>(context);
     final cartProvider = Provider.of<CartProvider>(context);
 
     // Check if product is favorite
@@ -134,7 +134,7 @@ class _DetailScreenState extends State<DetailScreen>
                 size: 22.sp,
               ),
               onPressed: () {
-                favoriteProvider.toggleFavorite(productId);
+                favoriteProvider.toggleFavorite(widget.product);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(isFavorite
@@ -433,7 +433,6 @@ class _DetailScreenState extends State<DetailScreen>
                       price: priceValue is double
                           ? priceValue
                           : double.tryParse(priceValue.toString()) ?? 0.0,
-                      quantity: 1,
                       imageUrl: imageURLs.isNotEmpty ? imageURLs[0] : '',
                       color: colors[selectedColorIndex],
                       size: selectedSize,

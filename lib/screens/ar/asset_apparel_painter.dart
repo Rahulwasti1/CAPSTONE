@@ -10,6 +10,8 @@ class AssetApparelPainter extends CustomPainter {
   final String apparelType;
   final ui.Image? preloadedImage; // Accept pre-loaded image
   final Offset? shoulderCenter; // Add shoulder center for better positioning
+  final double? shoulderWidth; // Add shoulder width for precise fitting
+  final double? chestWidth; // Add chest width for better body fitting
 
   AssetApparelPainter({
     required this.torsoCenter,
@@ -20,6 +22,8 @@ class AssetApparelPainter extends CustomPainter {
     required this.apparelType,
     this.preloadedImage, // Optional pre-loaded image
     this.shoulderCenter, // Optional shoulder center
+    this.shoulderWidth, // Optional shoulder width
+    this.chestWidth, // Optional chest width
   });
 
   @override
@@ -43,46 +47,55 @@ class AssetApparelPainter extends CustomPainter {
   }
 
   ApparelDimensions _calculateApparelDimensions() {
-    double baseWidth = torsoWidth * apparelSize;
-    double baseHeight = torsoHeight * apparelSize;
+    // Use precise measurements if available
+    double baseWidth = shoulderWidth ?? torsoWidth;
+    double baseHeight = torsoHeight;
     double offsetY = 0;
 
-    // Adjust dimensions based on apparel type
+    // Enhanced fitting based on apparel type and body measurements
     switch (apparelType.toLowerCase()) {
       case 'shirt':
       case 'tshirt':
       case 't-shirt':
-        baseWidth *= 1.3; // Wider for realistic t-shirt fit
-        baseHeight *= 0.6; // Shorter height for t-shirt proportions
-        offsetY =
-            -torsoHeight * 0.35; // Much higher - position at neck/shoulder area
+        // Use chest width for more accurate t-shirt fitting
+        if (chestWidth != null) {
+          baseWidth = chestWidth! * 1.1; // Slightly wider for comfortable fit
+        } else {
+          baseWidth = baseWidth * 1.2; // Fallback
+        }
+        baseHeight *= 0.65; // Perfect t-shirt proportions
+        offsetY = -torsoHeight * 0.4; // Higher positioning for t-shirt neckline
         break;
 
       case 'dress':
-        baseWidth *= 1.1;
-        baseHeight *= 1.5; // Longer coverage
-        offsetY = -torsoHeight * 0.25; // Higher for dress neckline
+        baseWidth = (chestWidth ?? baseWidth) * 1.05; // Fitted dress
+        baseHeight *= 1.6; // Longer coverage for dress
+        offsetY = -torsoHeight * 0.35; // Dress neckline
         break;
 
       case 'jacket':
       case 'blazer':
-        baseWidth *= 1.3; // Wider for outer wear
-        baseHeight *= 0.9;
-        offsetY = -torsoHeight * 0.3; // Higher for jacket collar
+        baseWidth = (shoulderWidth ?? baseWidth) * 1.35; // Wider for outer wear
+        baseHeight *= 0.95;
+        offsetY = -torsoHeight * 0.35; // Jacket collar positioning
         break;
 
       case 'hoodie':
       case 'sweater':
-        baseWidth *= 1.25;
-        baseHeight *= 0.85;
-        offsetY = -torsoHeight * 0.4; // Much higher for hood space
+        baseWidth = (chestWidth ?? baseWidth) * 1.3; // Relaxed fit
+        baseHeight *= 0.9;
+        offsetY = -torsoHeight * 0.45; // Higher for hood space
         break;
 
       default:
-        baseWidth *= 1.15;
+        baseWidth = (chestWidth ?? baseWidth) * 1.15;
         baseHeight *= 0.8;
-        offsetY = -torsoHeight * 0.3; // Default higher positioning
+        offsetY = -torsoHeight * 0.35;
     }
+
+    // Apply user's size preference
+    baseWidth *= apparelSize;
+    baseHeight *= apparelSize;
 
     return ApparelDimensions(
       width: baseWidth,

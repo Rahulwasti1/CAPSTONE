@@ -209,14 +209,16 @@ class AssetOrnamentsPainter extends CustomPainter {
     ornamentWidth *= widthScale;
     ornamentHeight *= heightScale;
 
-    // Calculate position - place on upper chest, not hanging low
-    // Use face bottom + small offset to place on upper chest area
-    final double chestOffset =
-        faceHeight * verticalOffset; // Much smaller offset
+    // Calculate position - place directly on neck area, not hanging low
+    // Use chin position or face bottom for neck-level placement
+    final double neckOffset =
+        faceHeight * 0.05; // Much smaller offset for neck placement
     final double centerX = faceCenter.dx;
+
+    // Position at neck level (face bottom + minimal offset)
     final double centerY =
         face.boundingBox.bottom * screenSize.height / imageSize.height +
-            chestOffset;
+            neckOffset;
 
     // Validate dimensions
     if (ornamentWidth <= 0 || ornamentHeight <= 0) {
@@ -316,14 +318,16 @@ class AssetOrnamentsPainter extends CustomPainter {
     _lastFaceWidth = stableFaceWidth;
     _lastFaceHeight = stableFaceHeight;
 
+    // Calculate ornament position - place at neck level, not hanging low
+    final neckOffset =
+        stableFaceHeight * 0.08; // Minimal offset for neck placement
+    final centerX = stableChinPosition.dx;
+    final centerY =
+        stableChinPosition.dy + neckOffset; // Place close to chin/neck
+
     // Calculate ornament dimensions
     final ornamentWidth = stableFaceWidth * widthScale;
     final ornamentHeight = ornamentWidth * heightScale;
-
-    // Calculate ornament position - below the chin
-    final neckOffset = stableFaceHeight * verticalOffset;
-    final centerX = stableChinPosition.dx;
-    final centerY = stableChinPosition.dy + neckOffset;
 
     // Calculate angle based on face rotation
     double angle = 0.0;
