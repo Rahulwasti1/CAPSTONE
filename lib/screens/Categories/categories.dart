@@ -25,6 +25,7 @@ class _UserCategoriesState extends State<UserCategories> {
     'Watches',
     'Ornaments',
     'Sunglasses',
+    'Headwear',
   ];
 
   final List<String> genderFilters = [

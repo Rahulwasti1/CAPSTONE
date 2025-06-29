@@ -11,7 +11,6 @@ import 'dart:convert'; // For base64Decode and json
 import 'package:capstone/screens/ar/asset_ornaments_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:capstone/service/asset_organizer_service.dart';
-import 'dart:math' as math;
 
 class AROrnamentScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -39,7 +38,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
   FaceDetector? _faceDetector;
   bool _isBusy = false;
   List<Face> _faces = [];
-  bool _isUsingFrontCamera = true;
+  bool _isUsingFrontCamera = false; // DEFAULT: Back camera for realistic AR
   Size? _imageSize;
   bool _isInitializing = true;
   String? _errorMessage;
@@ -52,7 +51,8 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
 
   // Size and position adjustment values
   double _widthScale = 2.0; // Default width scale
-  double _heightScale = 1.2; // Default height scale - taller for necklaces
+  double _heightScale =
+      2.5; // Increased height scale - much longer for necklaces
   double _verticalOffset =
       0.15; // Much smaller offset - place on upper chest, not hanging low
   bool _showAdjustmentControls = false;
@@ -64,7 +64,8 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
     _initializeFaceDetector();
     // Production build - no testing needed
     _loadOrnamentImage();
-    _initializeCamera(false); // Start with back camera
+    _initializeCamera(
+        false); // Start with back camera for realistic AR experience
   }
 
   Future<void> _loadOrnamentImage() async {
@@ -421,7 +422,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
         }
       } on CameraException catch (e) {
         // Camera exception during disposal
-      } catch (e) {
+      } catch (_) {
         // Error disposing camera
       }
       _cameraController = null;
@@ -452,7 +453,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           );
         });
       }
-    } catch (e) {
+    } catch (_) {
       // Error processing image
     } finally {
       _isBusy = false;
@@ -492,31 +493,6 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
     return true; // Accept most faces
   }
 
-  /// Check if face has basic facial landmarks (simplified)
-  bool _hasRequiredFacialLandmarks(Face face) {
-    // Just check if we have any major landmarks - be very forgiving
-    final leftEye = face.landmarks[FaceLandmarkType.leftEye];
-    final rightEye = face.landmarks[FaceLandmarkType.rightEye];
-    final noseBase = face.landmarks[FaceLandmarkType.noseBase];
-
-    // Accept if we have at least one eye or nose
-    return leftEye != null || rightEye != null || noseBase != null;
-  }
-
-  /// Simplified geometry check
-  bool _hasRealisticFaceGeometry(Face face) {
-    // Just check basic bounding box validity
-    final box = face.boundingBox;
-    return box.width > 0 && box.height > 0;
-  }
-
-  /// Calculate distance between two points
-  double _calculateDistance(double x1, double y1, double x2, double y2) {
-    final dx = x1 - x2;
-    final dy = y1 - y2;
-    return math.sqrt(dx * dx + dy * dy);
-  }
-
   InputImage? _inputImageFromCameraImage(CameraImage image) {
     if (_cameraController == null || !_cameraActive) return null;
 
@@ -544,7 +520,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           bytesPerRow: image.planes.first.bytesPerRow,
         ),
       );
-    } catch (e) {
+    } catch (_) {
       // Error creating input image
       return null;
     }
@@ -586,7 +562,7 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           await _cameraController!.stopImageStream();
         } on CameraException catch (e) {
           // Camera exception stopping stream
-        } catch (e) {
+        } catch (_) {
           // Error stopping camera stream
         }
       }
@@ -641,9 +617,9 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
           _cameraActive) {
         try {
           await _cameraController!.startImageStream(_processCameraImage);
-        } on CameraException catch (e) {
+        } on CameraException catch (_) {
           // Camera exception restarting stream
-        } catch (e) {
+        } catch (_) {
           // Error restarting camera stream
         }
       }
@@ -835,8 +811,9 @@ class _AROrnamentScreenState extends State<AROrnamentScreen>
                           child: Slider(
                             value: _heightScale,
                             min: 0.5,
-                            max: 2.5,
-                            divisions: 20,
+                            max:
+                                4.0, // Increased max to allow even longer ornaments
+                            divisions: 35, // More divisions for finer control
                             activeColor: Colors.blue,
                             inactiveColor: Colors.grey,
                             label: _heightScale.toStringAsFixed(1),

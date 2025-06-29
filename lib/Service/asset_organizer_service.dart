@@ -12,6 +12,7 @@ class AssetOrganizerService {
     'Watches': 'assets/effects/watches/',
     'Ornaments': 'assets/effects/ornaments/',
     'Sunglasses': 'assets/effects/sunglasses/',
+    'Headwear': 'assets/effects/hats/',
   };
 
   // Category to documents folder mapping (for runtime storage)
@@ -21,6 +22,7 @@ class AssetOrganizerService {
     'Watches': 'product_images/watches/',
     'Ornaments': 'product_images/ornaments/',
     'Sunglasses': 'product_images/sunglasses/',
+    'Headwear': 'product_images/headwear/',
   };
 
   // Method to save images to app documents directory (runtime storage)

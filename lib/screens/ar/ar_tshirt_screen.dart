@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:convert';
 import 'package:capstone/screens/ar/asset_tshirt_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:http/http.dart' as http;
 
 class ARTshirtScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -33,9 +33,11 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
     with WidgetsBindingObserver {
   CameraController? _cameraController;
   FaceDetector? _faceDetector;
+  PoseDetector? _poseDetector;
   bool _isBusy = false;
   List<Face> _faces = [];
-  bool _isUsingFrontCamera = true;
+  List<Pose> _poses = [];
+  bool _isUsingFrontCamera = false; // DEFAULT: Back camera for realistic AR
   Size? _imageSize;
   bool _isInitializing = true;
   String? _errorMessage;
@@ -46,10 +48,11 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
   final GlobalKey _globalKey = GlobalKey();
   bool _cameraActive = false;
 
-  // Size and position adjustment values
-  double _widthScale = 3.0; // Default width scale
-  double _heightScale = 1.5; // Default height scale for t-shirts
-  double _verticalOffset = 0.6; // How far down from face to place the t-shirt
+  // REBUILT: Realistic T-shirt sizing for proper upper body placement
+  double _widthScale = 1.2; // Natural width for realistic chest coverage
+  double _heightScale = 1.4; // Proper height proportion for upper torso
+  double _verticalOffset =
+      0.0; // Centered positioning (will be calculated by pose detection)
   bool _showAdjustmentControls = false;
 
   @override
@@ -57,6 +60,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeFaceDetector();
+    _initializePoseDetector();
     _loadTshirtImage();
     _initializeCamera(false); // Start with back camera
   }
@@ -295,7 +299,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       final String productName = widget.productTitle.replaceAll(' ', '-');
       final List<String> possibleImageNames = [
         // Exact match by filename
-        'assets/effects/ornament/${productName}.png',
+        'assets/effects/ornament/$productName.png',
         'assets/effects/ornament/${widget.productId}.png',
 
         // Try exact file names we know exist based on product title
@@ -330,7 +334,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           });
 
           return; // Successfully loaded an image, so exit
-        } catch (e) {
+        } catch (_) {
           // Just continue to the next possible image
         }
       }
@@ -357,11 +361,11 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
             });
 
             return; // Successfully loaded an image, so exit
-          } catch (e) {
+          } catch (_) {
             // Continue to try next image
           }
         }
-      } catch (e) {}
+      } catch (_) {}
 
       // Fall back to default t-shirt placeholder
       final ByteData data = await rootBundle.load(_assetImagePath);
@@ -374,7 +378,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       setState(() {
         _tshirtImage = fi.image;
       });
-    } catch (e) {}
+    } catch (_) {}
   }
 
   void _initializeFaceDetector() {
@@ -387,6 +391,13 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       performanceMode: FaceDetectorMode.accurate,
     );
     _faceDetector = FaceDetector(options: options);
+  }
+
+  void _initializePoseDetector() {
+    final options = PoseDetectorOptions(
+      mode: PoseDetectionMode.stream,
+    );
+    _poseDetector = PoseDetector(options: options);
   }
 
   Future<void> _initializeCamera(bool useFrontCamera) async {
@@ -420,7 +431,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           selectedCamera = widget.cameras.firstWhere(
             (camera) => camera.lensDirection == CameraLensDirection.front,
           );
-        } catch (e) {
+        } catch (_) {
           // Fall back to the first camera if no front camera
           selectedCamera = widget.cameras.first;
         }
@@ -430,7 +441,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
           selectedCamera = widget.cameras.firstWhere(
             (camera) => camera.lensDirection == CameraLensDirection.back,
           );
-        } catch (e) {
+        } catch (_) {
           // Fall back to the first camera if no back camera
           selectedCamera = widget.cameras.first;
         }
@@ -438,7 +449,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
 
       final controller = CameraController(
         selectedCamera,
-        ResolutionPreset.veryHigh,
+        ResolutionPreset.high, // FIXED: Balanced resolution for full body view
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
             ? ImageFormatGroup.yuv420
@@ -457,23 +468,19 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
 
       // Set camera parameters and start stream with proper error handling
       try {
-        if (Platform.isAndroid) {
-          await controller.setZoomLevel(1.0);
-          await controller.setExposureMode(ExposureMode.auto);
-          await controller.setExposureOffset(0.0);
-          await controller.setFocusMode(FocusMode.auto);
-          await controller.startImageStream(_processCameraImage);
-        } else {
-          await controller.setExposureMode(ExposureMode.auto);
-          await controller.setExposureOffset(0.0);
-          await controller.setFocusMode(FocusMode.auto);
+        // FIXED: Set natural zoom (1x) for full upper body visibility
+        await controller.setZoomLevel(1.0); // NO auto-zoom for accurate try-ons
+        await controller.setExposureMode(ExposureMode.auto);
+        await controller.setExposureOffset(0.0);
+        await controller.setFocusMode(FocusMode.auto);
+        if (!Platform.isAndroid) {
           await controller.setFlashMode(FlashMode.off);
-          await controller.startImageStream(_processCameraImage);
         }
+        await controller.startImageStream(_processCameraImage);
 
         _isUsingFrontCamera = useFrontCamera;
         _cameraActive = true;
-      } catch (e) {
+      } catch (_) {
         // If we can't start the stream, we still want to show the camera preview
         // so we don't set an error message here
       }
@@ -527,10 +534,19 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
     }
 
     try {
-      final faces = await _faceDetector?.processImage(inputImage);
-      if (mounted && faces != null && _cameraActive) {
+      // Process both face and pose detection simultaneously
+      final futures = await Future.wait([
+        _faceDetector?.processImage(inputImage) ?? Future.value(<Face>[]),
+        _poseDetector?.processImage(inputImage) ?? Future.value(<Pose>[]),
+      ]);
+
+      final faces = futures[0] as List<Face>;
+      final poses = futures[1] as List<Pose>;
+
+      if (mounted && _cameraActive) {
         setState(() {
           _faces = faces;
+          _poses = poses;
           _imageSize = Size(
             image.width.toDouble(),
             image.height.toDouble(),
@@ -538,6 +554,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
         });
       }
     } catch (e) {
+      // Handle detection errors silently
     } finally {
       _isBusy = false;
     }
@@ -701,6 +718,7 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
     WidgetsBinding.instance.removeObserver(this);
     _disposeCurrentCamera();
     _faceDetector?.close();
+    _poseDetector?.close();
     super.dispose();
   }
 
@@ -764,203 +782,213 @@ class _ARTshirtScreenState extends State<ARTshirtScreen>
       );
     }
 
-    // Camera view with face detection overlay
+    // Camera view with face detection overlay - Fixed white lines
     return RepaintBoundary(
       key: _globalKey,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Camera preview
-          CameraPreview(_cameraController!),
-
-          // Face overlay with t-shirt
-          if (_faces.isNotEmpty && _imageSize != null)
-            CustomPaint(
-              painter: AssetTshirtPainter(
-                faces: _faces,
-                imageSize: _imageSize!,
-                screenSize: MediaQuery.of(context).size,
-                cameraLensDirection:
-                    _cameraController!.description.lensDirection,
-                showTshirt: true,
-                tshirtImage: _tshirtImage,
-                widthScale: _widthScale,
-                heightScale: _heightScale,
-                verticalOffset: _verticalOffset,
-                stabilizePosition: true,
-              ),
+      child: Container(
+        color: Colors.black, // Remove white background
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Camera preview with full body view
+            Positioned.fill(
+              child: CameraPreview(_cameraController!),
             ),
 
-          // Adjustment controls
-          if (_showAdjustmentControls && !_isCapturing)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 60,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.black.withAlpha(138),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Width adjustment
-                    Row(
-                      children: [
-                        const Icon(Icons.width_normal,
-                            color: Colors.white, size: 18),
-                        const SizedBox(width: 8),
-                        const Text('Width:',
-                            style: TextStyle(color: Colors.white)),
-                        Expanded(
-                          child: Slider(
-                            value: _widthScale,
-                            min: 2.0,
-                            max: 5.0,
-                            divisions: 30,
-                            activeColor: Colors.blue,
-                            inactiveColor: Colors.grey,
-                            label: _widthScale.toStringAsFixed(1),
-                            onChanged: (value) {
-                              setState(() {
-                                _widthScale = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Height adjustment
-                    Row(
-                      children: [
-                        const Icon(Icons.height, color: Colors.white, size: 18),
-                        const SizedBox(width: 8),
-                        const Text('Height:',
-                            style: TextStyle(color: Colors.white)),
-                        Expanded(
-                          child: Slider(
-                            value: _heightScale,
-                            min: 1.0,
-                            max: 3.0,
-                            divisions: 20,
-                            activeColor: Colors.blue,
-                            inactiveColor: Colors.grey,
-                            label: _heightScale.toStringAsFixed(1),
-                            onChanged: (value) {
-                              setState(() {
-                                _heightScale = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Position adjustment
-                    Row(
-                      children: [
-                        const Icon(Icons.vertical_align_bottom,
-                            color: Colors.white, size: 18),
-                        const SizedBox(width: 8),
-                        const Text('Position:',
-                            style: TextStyle(color: Colors.white)),
-                        Expanded(
-                          child: Slider(
-                            value: _verticalOffset,
-                            min: 0.3,
-                            max: 1.5,
-                            divisions: 20,
-                            activeColor: Colors.blue,
-                            inactiveColor: Colors.grey,
-                            label: _verticalOffset.toStringAsFixed(1),
-                            onChanged: (value) {
-                              setState(() {
-                                _verticalOffset = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            // CRITICAL FIX: T-shirt overlay ABOVE user body layer
+            if (_faces.isNotEmpty && _imageSize != null)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: AssetTshirtPainter(
+                    faces: _faces,
+                    poses: _poses,
+                    imageSize: _imageSize!,
+                    screenSize: MediaQuery.of(context).size,
+                    cameraLensDirection:
+                        _cameraController!.description.lensDirection,
+                    showTshirt: true,
+                    tshirtImage: _tshirtImage,
+                    widthScale: _widthScale,
+                    heightScale: _heightScale,
+                    verticalOffset: _verticalOffset,
+                    stabilizePosition: true,
+                  ),
                 ),
               ),
-            ),
 
-          // Bottom controls
-          if (!_isCapturing)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                color: Colors.black.withAlpha(138),
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // Camera toggle button
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Colors.black38,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.flip_camera_ios,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        onPressed: widget.cameras.length > 1 && !_isInitializing
-                            ? _toggleCamera
-                            : null,
+            // Adjustment controls
+            if (_showAdjustmentControls && !_isCapturing)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 60,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black.withAlpha(138),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Width adjustment - Realistic range for T-shirt
+                      Row(
+                        children: [
+                          const Icon(Icons.width_normal,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 8),
+                          const Text('Width:',
+                              style: TextStyle(color: Colors.white)),
+                          Expanded(
+                            child: Slider(
+                              value: _widthScale,
+                              min: 0.8,
+                              max: 2.0,
+                              divisions: 24,
+                              activeColor: Colors.blue,
+                              inactiveColor: Colors.grey,
+                              label: _widthScale.toStringAsFixed(1),
+                              onChanged: (value) {
+                                setState(() {
+                                  _widthScale = value;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
 
-                    // Capture photo button
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundColor: Colors.white,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.camera,
-                          color: Colors.black,
-                          size: 32,
-                        ),
-                        onPressed: _captureAndSaveImage,
+                      // Height adjustment - Realistic range for T-shirt
+                      Row(
+                        children: [
+                          const Icon(Icons.height,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 8),
+                          const Text('Height:',
+                              style: TextStyle(color: Colors.white)),
+                          Expanded(
+                            child: Slider(
+                              value: _heightScale,
+                              min: 0.8,
+                              max: 2.2,
+                              divisions: 28,
+                              activeColor: Colors.blue,
+                              inactiveColor: Colors.grey,
+                              label: _heightScale.toStringAsFixed(1),
+                              onChanged: (value) {
+                                setState(() {
+                                  _heightScale = value;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
 
-                    // Adjustment button
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: _showAdjustmentControls
-                          ? Colors.blue.withAlpha(153)
-                          : Colors.black38,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.tune,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        onPressed: _toggleAdjustmentControls,
+                      // Position adjustment - Fine-tuning for perfect placement
+                      Row(
+                        children: [
+                          const Icon(Icons.vertical_align_center,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 8),
+                          const Text('Position:',
+                              style: TextStyle(color: Colors.white)),
+                          Expanded(
+                            child: Slider(
+                              value: _verticalOffset,
+                              min: -0.2,
+                              max: 0.2,
+                              divisions: 20,
+                              activeColor: Colors.blue,
+                              inactiveColor: Colors.grey,
+                              label: _verticalOffset.toStringAsFixed(2),
+                              onChanged: (value) {
+                                setState(() {
+                                  _verticalOffset = value;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-          // Capture overlay
-          if (_isCapturing)
-            Container(
-              color: Colors.black.withAlpha(77),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white,
+            // Bottom controls
+            if (!_isCapturing)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  color: Colors.black.withAlpha(138),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // Camera toggle button
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Colors.black38,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.flip_camera_ios,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          onPressed:
+                              widget.cameras.length > 1 && !_isInitializing
+                                  ? _toggleCamera
+                                  : null,
+                        ),
+                      ),
+
+                      // Capture photo button
+                      CircleAvatar(
+                        radius: 35,
+                        backgroundColor: Colors.white,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.camera,
+                            color: Colors.black,
+                            size: 32,
+                          ),
+                          onPressed: _captureAndSaveImage,
+                        ),
+                      ),
+
+                      // Adjustment button
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: _showAdjustmentControls
+                            ? Colors.blue.withAlpha(153)
+                            : Colors.black38,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.tune,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          onPressed: _toggleAdjustmentControls,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
+
+            // Capture overlay
+            if (_isCapturing)
+              Container(
+                color: Colors.black.withAlpha(77),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

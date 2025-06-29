@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:ui' as ui;
-import 'dart:math' as math;
 
 /// ✅ IMPROVED WATCH OVERLAY PAINTER with adjustable controls
 class WatchOverlayPainter extends CustomPainter {

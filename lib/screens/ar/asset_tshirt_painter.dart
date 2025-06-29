@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'dart:ui' as ui;
@@ -7,6 +8,7 @@ import 'dart:developer' as developer;
 
 class AssetTshirtPainter extends CustomPainter {
   final List<Face> faces;
+  final List<Pose> poses;
   final Size imageSize;
   final Size screenSize;
   final CameraLensDirection cameraLensDirection;
@@ -26,21 +28,25 @@ class AssetTshirtPainter extends CustomPainter {
   static int? _lastFaceID;
   static Offset? _lastBodyPosition;
 
-  // Store the last calculated tshirt position for stability
+  // Store the last calculated tshirt position for stability - OPTIMIZED
   static Offset? _lastTshirtPosition;
   static double? _lastTshirtAngle;
-  static double _smoothingFactor = 0.8; // Higher value means more smoothing
+  static double? _lastTshirtWidth;
+  static double? _lastTshirtHeight;
+  static final double _smoothingFactor =
+      0.3; // REDUCED for faster response like sunglasses
 
   AssetTshirtPainter({
     required this.faces,
+    required this.poses,
     required this.imageSize,
     required this.screenSize,
     required this.cameraLensDirection,
     required this.showTshirt,
     this.tshirtImage,
-    this.widthScale = 3.0,
-    this.heightScale = 1.5,
-    this.verticalOffset = 0.6,
+    this.widthScale = 2.2,
+    this.heightScale = 1.8,
+    this.verticalOffset = 0.15,
     this.stabilizePosition = true,
   });
 
@@ -73,7 +79,147 @@ class AssetTshirtPainter extends CustomPainter {
   }
 
   void _drawTshirtImage(Canvas canvas, Face face, ui.Image image) {
-    // Use face dimension to estimate chest/body position
+    // REBUILT FROM SCRATCH: Proper pose-based T-shirt positioning
+
+    // Try pose detection first for accurate body positioning
+    if (poses.isNotEmpty) {
+      final pose = poses.first;
+
+      // Get required landmarks for T-shirt positioning
+      final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
+      final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
+      final leftHip = pose.landmarks[PoseLandmarkType.leftHip];
+      final rightHip = pose.landmarks[PoseLandmarkType.rightHip];
+      final nose =
+          pose.landmarks[PoseLandmarkType.nose]; // Approximate neck position
+
+      // Ensure we have the essential landmarks
+      if (leftShoulder != null &&
+          rightShoulder != null &&
+          leftHip != null &&
+          rightHip != null) {
+        // Convert landmarks to screen coordinates
+        final leftShoulderPos = _scalePoint(
+            math.Point(leftShoulder.x.toInt(), leftShoulder.y.toInt()));
+        final rightShoulderPos = _scalePoint(
+            math.Point(rightShoulder.x.toInt(), rightShoulder.y.toInt()));
+        final leftHipPos =
+            _scalePoint(math.Point(leftHip.x.toInt(), leftHip.y.toInt()));
+        final rightHipPos =
+            _scalePoint(math.Point(rightHip.x.toInt(), rightHip.y.toInt()));
+
+        // Calculate neck position (use nose as approximation)
+        final neckPos = nose != null
+            ? _scalePoint(math.Point(nose.x.toInt(), nose.y.toInt()))
+            : Offset(
+                (leftShoulderPos.dx + rightShoulderPos.dx) / 2,
+                (leftShoulderPos.dy + rightShoulderPos.dy) / 2 -
+                    40, // Approximate neck above shoulders
+              );
+
+        // STEP 1: Calculate T-shirt anchor position (upper chest area)
+        final shoulderCenterX = (leftShoulderPos.dx + rightShoulderPos.dx) / 2;
+        final shoulderCenterY = (leftShoulderPos.dy + rightShoulderPos.dy) / 2;
+
+        // Position T-shirt between neck and shoulders (upper chest)
+        final tshirtAnchorX = shoulderCenterX;
+        final tshirtAnchorY = neckPos.dy +
+            ((shoulderCenterY - neckPos.dy) *
+                0.7); // 70% down from neck to shoulders
+
+        final tshirtCenter = Offset(tshirtAnchorX, tshirtAnchorY);
+
+        // STEP 2: Calculate realistic scaling based on body proportions
+        final shoulderWidth = (rightShoulderPos.dx - leftShoulderPos.dx).abs();
+        final hipWidth = (rightHipPos.dx - leftHipPos.dx).abs();
+        final torsoWidth =
+            math.max(shoulderWidth, hipWidth); // Use wider measurement
+
+        // Calculate T-shirt dimensions
+        final tshirtWidth = torsoWidth * widthScale;
+        final torsoHeight =
+            ((leftHipPos.dy + rightHipPos.dy) / 2) - shoulderCenterY;
+        final tshirtHeight =
+            torsoHeight * heightScale * 0.8; // Cover upper 80% of torso
+
+        // STEP 3: Calculate rotation based on shoulder angle
+        final shoulderAngle = math.atan2(
+          rightShoulderPos.dy - leftShoulderPos.dy,
+          rightShoulderPos.dx - leftShoulderPos.dx,
+        );
+
+        // Apply stabilization for smooth movement
+        final Offset finalTshirtCenter;
+        final double finalTshirtWidth;
+        final double finalTshirtHeight;
+        final double finalTshirtAngle;
+
+        if (stabilizePosition && _lastTshirtPosition != null) {
+          // Smooth position and dimensions
+          finalTshirtCenter = Offset(
+            _lastTshirtPosition!.dx * 0.7 + tshirtCenter.dx * 0.3,
+            _lastTshirtPosition!.dy * 0.7 + tshirtCenter.dy * 0.3,
+          );
+          finalTshirtWidth =
+              (_lastTshirtWidth ?? tshirtWidth) * 0.7 + tshirtWidth * 0.3;
+          finalTshirtHeight =
+              (_lastTshirtHeight ?? tshirtHeight) * 0.7 + tshirtHeight * 0.3;
+          finalTshirtAngle =
+              (_lastTshirtAngle ?? shoulderAngle) * 0.7 + shoulderAngle * 0.3;
+        } else {
+          finalTshirtCenter = tshirtCenter;
+          finalTshirtWidth = tshirtWidth;
+          finalTshirtHeight = tshirtHeight;
+          finalTshirtAngle = shoulderAngle;
+        }
+
+        // Store for next frame
+        _lastTshirtPosition = finalTshirtCenter;
+        _lastTshirtWidth = finalTshirtWidth;
+        _lastTshirtHeight = finalTshirtHeight;
+        _lastTshirtAngle = finalTshirtAngle;
+
+        // STEP 4: Draw the T-shirt above the user body
+        _drawTshirtOverlay(canvas, image, finalTshirtCenter, finalTshirtWidth,
+            finalTshirtHeight, finalTshirtAngle);
+        return;
+      }
+    }
+
+    // FALLBACK: Use face detection if pose detection fails
+    _drawTshirtWithFaceDetection(canvas, face, image);
+  }
+
+  void _drawTshirtOverlay(Canvas canvas, ui.Image image, Offset center,
+      double width, double height, double angle) {
+    final destRect = Rect.fromCenter(
+      center: center,
+      width: width,
+      height: height,
+    );
+
+    canvas.save();
+
+    // Apply rotation around center
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(angle);
+    canvas.translate(-center.dx, -center.dy);
+
+    // Draw T-shirt with proper layering
+    final srcRect =
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+    final paint = Paint()
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high
+      ..blendMode =
+          BlendMode.srcOver; // Ensures T-shirt appears above user body
+
+    canvas.drawImageRect(image, srcRect, destRect, paint);
+    canvas.restore();
+  }
+
+  void _drawTshirtWithFaceDetection(Canvas canvas, Face face, ui.Image image) {
+    // Enhanced face-based fallback for when pose detection is unavailable
     final faceWidth =
         face.boundingBox.width * screenSize.width / imageSize.width;
     final faceHeight =
@@ -85,116 +231,20 @@ class AssetTshirtPainter extends CustomPainter {
     final faceCenter =
         _scalePoint(math.Point(faceCenterX.toInt(), faceCenterY.toInt()));
 
-    // Calculate estimated body position based on face position
-    // T-shirt should be below the face
-    final bodyPositionY = faceCenter.dy + (faceHeight * verticalOffset);
-    final bodyPosition = Offset(faceCenter.dx, bodyPositionY);
+    // Estimate upper chest position based on face
+    final chestCenterX = faceCenter.dx;
+    final chestCenterY =
+        faceCenter.dy + (faceHeight * 1.2); // Below face for upper chest
+    final chestCenter = Offset(chestCenterX, chestCenterY);
 
-    // Check if this is significant face movement or phone movement
-    bool isHeadMovement = true;
-    if (_lastFacePosition != null && _lastFaceID == face.trackingId) {
-      // Calculate movement distance
-      final moveDist = (_lastFacePosition! - faceCenter).distance;
-      // If movement is very large and sudden, it's likely phone movement
-      if (moveDist > 40) {
-        isHeadMovement = false;
-      }
-    }
-    _lastFacePosition = faceCenter;
-
-    // Apply stabilization if enabled
-    final Offset stableBodyPosition;
-    final double stableFaceWidth;
-    final double stableFaceHeight;
-
-    if (stabilizePosition &&
-        _lastBodyPosition != null &&
-        _lastFaceWidth != null &&
-        _lastFaceHeight != null) {
-      // If it's phone movement, use previous positions more heavily
-      final smoothFactor = isHeadMovement ? _smoothingFactor : 0.95;
-
-      // Smooth the position to reduce jitter
-      stableBodyPosition = Offset(
-          _lastBodyPosition!.dx * smoothFactor +
-              bodyPosition.dx * (1 - smoothFactor),
-          _lastBodyPosition!.dy * smoothFactor +
-              bodyPosition.dy * (1 - smoothFactor));
-
-      // Smooth the dimensions
-      stableFaceWidth =
-          _lastFaceWidth! * smoothFactor + faceWidth * (1 - smoothFactor);
-      stableFaceHeight =
-          _lastFaceHeight! * smoothFactor + faceHeight * (1 - smoothFactor);
-    } else {
-      stableBodyPosition = bodyPosition;
-      stableFaceWidth = faceWidth;
-      stableFaceHeight = faceHeight;
-    }
-
-    // Update the last positions for next frame
-    _lastBodyPosition = stableBodyPosition;
-    _lastFaceWidth = stableFaceWidth;
-    _lastFaceHeight = stableFaceHeight;
-
-    // Calculate tshirt dimensions based on face width
-    final tshirtWidth = stableFaceWidth * widthScale;
+    // Scale based on face proportions
+    final estimatedTorsoWidth = faceWidth * 2.0; // Approximate shoulder width
+    final tshirtWidth = estimatedTorsoWidth * widthScale;
     final tshirtHeight = tshirtWidth * heightScale;
 
-    // Calculate angle - using face angle for slight tilt
-    double angle = 0.0;
-    if (face.headEulerAngleZ != null) {
-      // Convert from degrees to radians and reduce the effect for t-shirt
-      angle = face.headEulerAngleZ! * math.pi / 180 * 0.3; // Reduced effect
-    }
-
-    // Apply additional stabilization to the final tshirt position
-    final Offset tshirtPosition;
-    final double tshirtAngle;
-
-    if (stabilizePosition &&
-        _lastTshirtPosition != null &&
-        _lastTshirtAngle != null) {
-      // Smooth the final position and angle for ultra stability
-      tshirtPosition = Offset(
-          _lastTshirtPosition!.dx * 0.8 + stableBodyPosition.dx * 0.2,
-          _lastTshirtPosition!.dy * 0.8 + stableBodyPosition.dy * 0.2);
-      tshirtAngle = _lastTshirtAngle! * 0.8 + angle * 0.2;
-    } else {
-      tshirtPosition = stableBodyPosition;
-      tshirtAngle = angle;
-    }
-
-    // Update for next frame
-    _lastTshirtPosition = tshirtPosition;
-    _lastTshirtAngle = tshirtAngle;
-
-    // Create destination rectangle for the image
-    final destRect = Rect.fromCenter(
-      center: tshirtPosition,
-      width: tshirtWidth,
-      height: tshirtHeight,
-    );
-
-    // Save canvas state
-    canvas.save();
-
-    // Translate and rotate canvas
-    canvas.translate(tshirtPosition.dx, tshirtPosition.dy);
-    canvas.rotate(tshirtAngle);
-    canvas.translate(-tshirtPosition.dx, -tshirtPosition.dy);
-
-    // Draw the image
-    final srcRect =
-        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
-    final paint = Paint()
-      ..isAntiAlias = true
-      ..filterQuality = FilterQuality.high;
-
-    canvas.drawImageRect(image, srcRect, destRect, paint);
-
-    // Restore canvas
-    canvas.restore();
+    // Draw T-shirt
+    _drawTshirtOverlay(
+        canvas, image, chestCenter, tshirtWidth, tshirtHeight, 0.0);
   }
 
   void _drawPlaceholderTshirt(Canvas canvas, Face face) {

@@ -12,7 +12,6 @@ import 'package:capstone/screens/ar/asset_watches_painter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:capstone/service/asset_organizer_service.dart';
 import 'package:http/http.dart' as http;
-import 'dart:math' as math;
 
 class ARWatchesScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -38,7 +37,7 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     with WidgetsBindingObserver {
   CameraController? _cameraController;
   bool _isInitializing = true;
-  bool _isUsingFrontCamera = true;
+  bool _isUsingFrontCamera = false; // DEFAULT: Back camera for realistic AR
   String? _errorMessage;
   ui.Image? _watchImage;
   bool _isImageLoading = true;
@@ -50,18 +49,20 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
   double _heightScale = 1.5;
   bool _showSizeControls = false;
 
-  // Wrist detection variables - much more strict
+  // Wrist detection variables - forgiving for production use
   PoseDetector? _poseDetector;
   bool _isDetecting = false;
   bool _wristDetected = false;
   int _consecutiveDetections = 0;
-  static const int _minConsecutiveDetections = 8; // Increased from 5
-  static const double _minConfidence = 0.90; // Increased from 0.85
-  static const double _minArmLandmarkConfidence = 0.85; // Increased from 0.7
+  static const int _minConsecutiveDetections = 2; // Restored to working value
+  static const double _minConfidence = 0.5; // Restored to working range
 
   // Detection timing
   DateTime? _lastDetectionTime;
-  static const int _detectionIntervalMs = 200; // Slower for better accuracy
+  static const int _detectionIntervalMs = 100; // Faster detection
+
+  // Detection status for user feedback
+  String _detectionStatus = "Hold your wrist steady in camera view 📱";
 
   @override
   void initState() {
@@ -467,58 +468,39 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     }
   }
 
-  /// Strict wrist detection with full arm validation
+  /// Simplified wrist detection with user-friendly feedback
   void _updateWristDetection(List<Pose> poses) {
     bool validWristFound = false;
     double bestConfidence = 0.0;
 
-    // Check for poses
+    // Update status based on pose detection
     if (poses.isEmpty) {
       setState(() {
         _wristDetected = false;
+        _detectionStatus = "Hold your wrist steady in camera view 📱";
       });
       _consecutiveDetections = 0;
       return;
     }
 
     for (final pose in poses) {
-      // Get all arm landmarks for validation
+      // Get wrist landmarks with simpler validation
       final rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
       final leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
-      final rightElbow = pose.landmarks[PoseLandmarkType.rightElbow];
-      final leftElbow = pose.landmarks[PoseLandmarkType.leftElbow];
-      final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
-      final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
 
-      // Check right arm with full validation
-      if (rightWrist != null &&
-          rightElbow != null &&
-          rightShoulder != null &&
-          rightWrist.likelihood > _minConfidence &&
-          rightElbow.likelihood > _minArmLandmarkConfidence &&
-          rightShoulder.likelihood > _minArmLandmarkConfidence) {
-        // Validate complete arm structure
-        if (_isValidCompleteArm(rightWrist, rightElbow, rightShoulder)) {
-          if (rightWrist.likelihood > bestConfidence) {
-            validWristFound = true;
-            bestConfidence = rightWrist.likelihood;
-          }
+      // Check right wrist with forgiving thresholds
+      if (rightWrist != null && rightWrist.likelihood > _minConfidence) {
+        if (rightWrist.likelihood > bestConfidence) {
+          validWristFound = true;
+          bestConfidence = rightWrist.likelihood;
         }
       }
 
-      // Check left arm with full validation
-      if (leftWrist != null &&
-          leftElbow != null &&
-          leftShoulder != null &&
-          leftWrist.likelihood > _minConfidence &&
-          leftElbow.likelihood > _minArmLandmarkConfidence &&
-          leftShoulder.likelihood > _minArmLandmarkConfidence) {
-        // Validate complete arm structure
-        if (_isValidCompleteArm(leftWrist, leftElbow, leftShoulder)) {
-          if (leftWrist.likelihood > bestConfidence) {
-            validWristFound = true;
-            bestConfidence = leftWrist.likelihood;
-          }
+      // Check left wrist with forgiving thresholds
+      if (leftWrist != null && leftWrist.likelihood > _minConfidence) {
+        if (leftWrist.likelihood > bestConfidence) {
+          validWristFound = true;
+          bestConfidence = leftWrist.likelihood;
         }
       }
     }
@@ -526,101 +508,22 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
     if (validWristFound) {
       _consecutiveDetections++;
 
-      // Show watch only after many consecutive detections
-      if (_consecutiveDetections >= _minConsecutiveDetections) {
-        setState(() {
+      // Update status to show progress
+      setState(() {
+        if (_consecutiveDetections >= _minConsecutiveDetections) {
           _wristDetected = true;
-        });
-      }
+          _detectionStatus = "Perfect wrist detection! ⌚️";
+        } else {
+          _detectionStatus = "Detecting wrist... Keep steady! ⏳";
+        }
+      });
     } else {
       _consecutiveDetections = 0;
       setState(() {
         _wristDetected = false;
+        _detectionStatus = "Hold your wrist steady in camera view 📱";
       });
     }
-  }
-
-  /// Validate complete arm structure with ultra-strict geometric rules
-  bool _isValidCompleteArm(
-      PoseLandmark wrist, PoseLandmark elbow, PoseLandmark shoulder) {
-    // Calculate distances
-    final wristToElbow = _calculateDistance(wrist, elbow);
-    final elbowToShoulder = _calculateDistance(elbow, shoulder);
-    final wristToShoulder = _calculateDistance(wrist, shoulder);
-
-    // Ultra-strict distance validation (tighter human arm proportions)
-    if (wristToElbow < 90 || wristToElbow > 180) return false; // Tighter range
-    if (elbowToShoulder < 90 || elbowToShoulder > 180)
-      return false; // Tighter range
-    if (wristToShoulder < 140 || wristToShoulder > 320)
-      return false; // Tighter range
-
-    // Forearm should be very similar to upper arm (human proportions)
-    if (wristToElbow > elbowToShoulder * 1.2) return false; // Tighter ratio
-    if (wristToElbow < elbowToShoulder * 0.8) return false; // Tighter ratio
-
-    // Validate arm angle (must be naturally bent, not straight line)
-    final angle = _calculateAngle(wrist, elbow, shoulder);
-    if (angle < 60 || angle > 150) return false; // Tighter angle range
-
-    // Additional validation: check if landmarks form a realistic arm shape
-    if (!_isRealisticArmShape(wrist, elbow, shoulder)) return false;
-
-    return true;
-  }
-
-  /// Additional validation for realistic arm shape
-  bool _isRealisticArmShape(
-      PoseLandmark wrist, PoseLandmark elbow, PoseLandmark shoulder) {
-    // Check if elbow is positioned between wrist and shoulder (not in a straight line)
-    final wristToShoulder = _calculateDistance(wrist, shoulder);
-    final wristToElbow = _calculateDistance(wrist, elbow);
-    final elbowToShoulder = _calculateDistance(elbow, shoulder);
-
-    // Triangle inequality check - elbow should create a proper triangle
-    if (wristToElbow + elbowToShoulder <= wristToShoulder * 1.1) return false;
-
-    // Check if all three points are roughly in the same plane (not too spread out)
-    final area = _calculateTriangleArea(wrist, elbow, shoulder);
-    if (area < 500 || area > 15000) return false; // Realistic arm triangle area
-
-    return true;
-  }
-
-  /// Calculate triangle area formed by three landmarks
-  double _calculateTriangleArea(
-      PoseLandmark p1, PoseLandmark p2, PoseLandmark p3) {
-    return ((p1.x * (p2.y - p3.y) +
-                p2.x * (p3.y - p1.y) +
-                p3.x * (p1.y - p2.y)) /
-            2)
-        .abs();
-  }
-
-  /// Calculate distance between two pose landmarks
-  double _calculateDistance(PoseLandmark point1, PoseLandmark point2) {
-    final dx = point1.x - point2.x;
-    final dy = point1.y - point2.y;
-    return math.sqrt(dx * dx + dy * dy);
-  }
-
-  /// Calculate angle between three points (elbow is the vertex)
-  double _calculateAngle(
-      PoseLandmark wrist, PoseLandmark elbow, PoseLandmark shoulder) {
-    final vector1x = wrist.x - elbow.x;
-    final vector1y = wrist.y - elbow.y;
-    final vector2x = shoulder.x - elbow.x;
-    final vector2y = shoulder.y - elbow.y;
-
-    final dot = vector1x * vector2x + vector1y * vector2y;
-    final mag1 = math.sqrt(vector1x * vector1x + vector1y * vector1y);
-    final mag2 = math.sqrt(vector2x * vector2x + vector2y * vector2y);
-
-    if (mag1 == 0 || mag2 == 0) return 0;
-
-    final cosAngle = dot / (mag1 * mag2);
-    final angleRad = math.acos(cosAngle.clamp(-1.0, 1.0));
-    return angleRad * 180 / math.pi;
   }
 
   Future<void> _flipCamera() async {
@@ -770,6 +673,53 @@ class _ARWatchesScreenState extends State<ARWatchesScreen>
                 wristDetected: _wristDetected,
               ),
             ),
+
+          // Detection status indicator - always show
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: _wristDetected
+                    ? Colors.green.withValues(alpha: 0.9)
+                    : Colors.black.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_wristDetected)
+                    const Icon(Icons.check_circle,
+                        color: Colors.white, size: 20)
+                  else
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _detectionStatus,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
           // Simple size adjustment controls like sunglasses
           if (_showSizeControls && !_isCapturing)

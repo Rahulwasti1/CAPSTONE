@@ -32,6 +32,7 @@ class _CategotyAdminState extends State<CategotyAdmin> {
     'Watches',
     'Ornaments',
     'Sunglasses',
+    'Headwear',
   ];
 
   // Gender categories

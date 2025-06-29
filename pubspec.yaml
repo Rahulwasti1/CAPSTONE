@@ -91,13 +91,12 @@ flutter:
     - assets/images/
     - assets/images/banner_images/
     - assets/images/category_image/
-    - assets/images/shoes/
-    - assets/images/apparel/
     - assets/models/sunglasses/
     - assets/effects/glasses/
     - assets/effects/ornaments/
     - assets/effects/apparel/
     - assets/effects/shoes/
+    - assets/effects/hats/
     - assets/effects/debug/
     - assets/effects/watches/
 

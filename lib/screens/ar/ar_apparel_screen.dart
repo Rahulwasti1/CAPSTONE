@@ -47,45 +47,28 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
   int _lastDetectionTime = 0;
   static const int _detectionIntervalMs = 100; // 10 FPS
 
-  // Apparel rendering
-  double _apparelSize = 1.0;
-  bool _showApparel = true;
-  String _detectionStatus = 'Initializing camera...';
-
-  // Position smoothing
-  final List<Offset> _recentTorsoPositions = [];
-  final List<double> _recentTorsoWidths = [];
-  final List<double> _recentTorsoHeights = [];
-  static const int _maxPositionHistory = 5;
-
-  // Enhanced body measurements
-  final List<double> _recentShoulderWidths = [];
-  final List<double> _recentChestWidths = [];
-  final List<Offset> _recentShoulderCenters = [];
-  double _bodyWidthRatio = 1.0; // Width adjustment
-  double _bodyHeightRatio = 1.0; // Height adjustment
-
-  // Improved body detection
-  Offset? _shoulderCenter;
-  double _shoulderWidth = 0;
-  double _chestWidth = 0;
-  bool _hasAccurateBodyMeasurements = false;
-
-  // Image loading
-  ui.Image? _preloadedImage;
-  bool _isImageReady = false;
-  String _effectiveImagePath = '';
-
-  // Body positions for apparel placement
+  // Simplified AR Variables
   Offset? _torsoCenter;
   double _torsoWidth = 0;
   double _torsoHeight = 0;
+  bool _showApparel = false;
+
+  // Status and feedback
+  String _detectionStatus = 'Starting AR apparel...';
+
+  // Image management
+  ui.Image? _preloadedImage;
+  bool _isImageReady = false;
+
+  // Simple user controls - just one scaler
+  double _apparelSize = 1.5; // Start a bit bigger
+  bool _showSizeControls = false;
 
   @override
   void initState() {
     super.initState();
     _initializePoseDetector();
-    _preloadApparelImage();
+    _preloadApparelImageFast(); // Fast loading like shoes
     _initializeCamera();
   }
 
@@ -93,6 +76,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
   void dispose() {
     _cameraController?.dispose();
     _poseDetector?.close();
+    _preloadedImage = null; // Clear image memory
     super.dispose();
   }
 
@@ -111,61 +95,80 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
     }
   }
 
-  Future<void> _preloadApparelImage() async {
+  /// Fast apparel loading - prioritizes local assets for instant loading
+  Future<void> _preloadApparelImageFast() async {
     try {
       setState(() {
         _isImageReady = false;
+        _detectionStatus = 'Loading AR apparel...';
       });
 
       ui.Image? loadedImage;
 
-      // Try loading from product-specific assets first (like watches system)
-      loadedImage = await _tryLoadFromProductAssets();
-      if (loadedImage != null) {
-        setState(() {
-          _preloadedImage = loadedImage;
-          _effectiveImagePath = 'product_asset';
-          _isImageReady = true;
-        });
-        return;
-      }
-
-      // Try loading from network URL if provided
-      if (widget.productImage.isNotEmpty &&
-          (widget.productImage.startsWith('http://') ||
-              widget.productImage.startsWith('https://'))) {
-        loadedImage = await _tryLoadFromNetwork();
-        if (loadedImage != null) {
-          setState(() {
-            _preloadedImage = loadedImage;
-            _effectiveImagePath = widget.productImage;
-            _isImageReady = true;
-          });
-          return;
-        }
-      }
-
-      // Try loading from generic apparel assets
+      // Priority 1: FAST - Load default apparel asset immediately
       loadedImage = await _tryLoadFromGenericAssets();
+
+      // Set the fast-loading asset immediately
       if (loadedImage != null) {
         setState(() {
           _preloadedImage = loadedImage;
-          _effectiveImagePath = 'generic_asset';
           _isImageReady = true;
+          _detectionStatus = '👤 Position yourself in camera view';
         });
+
+        // Try to upgrade with better images in background (non-blocking)
+        _loadBetterApparelInBackground();
         return;
       }
 
-      // Create placeholder if all else fails
+      // Create placeholder if fast loading fails
       await _createPlaceholderImage();
       setState(() {
         _isImageReady = true;
+        _detectionStatus = '👤 Position yourself in camera view';
       });
     } catch (e) {
       await _createPlaceholderImage();
       setState(() {
         _isImageReady = true;
+        _detectionStatus = '👤 Position yourself in camera view';
       });
+    }
+  }
+
+  /// Load better quality images in background without blocking UI
+  Future<void> _loadBetterApparelInBackground() async {
+    try {
+      ui.Image? betterImage;
+
+      // Try product-specific assets with timeout
+      try {
+        betterImage = await _tryLoadFromProductAssets().timeout(
+          const Duration(seconds: 2),
+        );
+      } catch (e) {
+        // Continue if timeout or error
+      }
+
+      // Try network loading with timeout (only if product loading failed)
+      if (betterImage == null && widget.productImage.isNotEmpty) {
+        try {
+          betterImage = await _tryLoadFromNetwork().timeout(
+            const Duration(seconds: 3),
+          );
+        } catch (e) {
+          // Continue if network loading fails
+        }
+      }
+
+      // Update UI with better image if found
+      if (mounted && betterImage != null) {
+        setState(() {
+          _preloadedImage = betterImage;
+        });
+      }
+    } catch (e) {
+      // Silently fail background loading - user already has working apparel
     }
   }
 
@@ -179,7 +182,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
             await AssetOrganizerService.getProductImages(
           category: widget.productData?['category'] ?? 'Apparel',
           productId: widget.productData?['id'] ?? '',
-          productTitle: widget.productName ?? '',
+          productTitle: widget.productName,
           selectedColor: widget.selectedColor,
         );
 
@@ -354,7 +357,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
 
       setState(() {
         _preloadedImage = image;
-        _effectiveImagePath = 'placeholder';
       });
     } catch (e) {}
   }
@@ -433,7 +435,7 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
       final poses = await _poseDetector!.processImage(inputImage);
 
       if (mounted) {
-        _processPoseResults(poses, image.width, image.height);
+        _processPoseDetectionResults(poses, image);
       }
     } catch (e) {
       if (mounted) {
@@ -474,208 +476,132 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
     }
   }
 
-  void _processPoseResults(List<Pose> poses, int imageWidth, int imageHeight) {
+  void _processPoseDetectionResults(List<Pose> poses, CameraImage image) async {
+    // Use only the first reliable pose for better performance
     if (poses.isEmpty) {
       setState(() {
-        _detectionStatus = 'No person detected - step into view';
-        _hasAccurateBodyMeasurements = false;
+        _torsoCenter = null;
+        _torsoWidth = 0;
+        _torsoHeight = 0;
+        _showApparel = false;
+        _detectionStatus = "Position yourself in front of the camera";
       });
       return;
     }
 
     final pose = poses.first;
 
-    // Get comprehensive body landmarks for accurate measurements
+    // Simple pose validation for fast detection
+    final isValid = _validateSimplePose(pose, image);
+
+    if (isValid) {
+      setState(() {
+        _showApparel = true;
+        _detectionStatus =
+            "✅ ${widget.apparelType.toUpperCase()} ready - adjust size as needed";
+      });
+    } else {
+      setState(() {
+        _showApparel = false;
+        _detectionStatus = "👤 Position yourself in camera view";
+      });
+    }
+  }
+
+  // Simple body detection for fast AR experience
+  bool _validateSimplePose(Pose pose, CameraImage image) {
+    final screenSize = MediaQuery.of(context).size;
+
+    // Get basic landmarks - more forgiving
     final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
     final leftHip = pose.landmarks[PoseLandmarkType.leftHip];
     final rightHip = pose.landmarks[PoseLandmarkType.rightHip];
-    final leftElbow = pose.landmarks[PoseLandmarkType.leftElbow];
-    final rightElbow = pose.landmarks[PoseLandmarkType.rightElbow];
 
+    // Basic validation
     if (leftShoulder == null ||
         rightShoulder == null ||
         leftHip == null ||
         rightHip == null) {
-      setState(() {
-        _detectionStatus = 'Turn to face the camera clearly';
-        _hasAccurateBodyMeasurements = false;
-      });
-      return;
+      return false;
     }
 
-    // Enhanced confidence checking
+    // Forgiving confidence threshold
     if (leftShoulder.likelihood < 0.5 ||
         rightShoulder.likelihood < 0.5 ||
         leftHip.likelihood < 0.5 ||
         rightHip.likelihood < 0.5) {
-      setState(() {
-        _detectionStatus =
-            'Stand clearly in front of camera for better detection';
-        _hasAccurateBodyMeasurements = false;
-      });
-      return;
+      return false;
     }
 
-    // Convert camera coordinates to screen coordinates
-    final screenSize = MediaQuery.of(context).size;
-    final leftShoulderScreen = _convertToScreenCoordinates(
-      leftShoulder.x,
-      leftShoulder.y,
-      imageWidth,
-      imageHeight,
-      screenSize,
-    );
-    final rightShoulderScreen = _convertToScreenCoordinates(
-      rightShoulder.x,
-      rightShoulder.y,
-      imageWidth,
-      imageHeight,
-      screenSize,
-    );
-    final leftHipScreen = _convertToScreenCoordinates(
-      leftHip.x,
-      leftHip.y,
-      imageWidth,
-      imageHeight,
-      screenSize,
-    );
-    final rightHipScreen = _convertToScreenCoordinates(
-      rightHip.x,
-      rightHip.y,
-      imageWidth,
-      imageHeight,
-      screenSize,
-    );
+    // Calculate simple measurements
+    return _calculateSimpleBodyMeasurements(
+        leftShoulder, rightShoulder, leftHip, rightHip, image, screenSize);
+  }
 
-    // Calculate enhanced body measurements
-    final shoulderCenter = Offset(
-      (leftShoulderScreen.dx + rightShoulderScreen.dx) / 2,
-      (leftShoulderScreen.dy + rightShoulderScreen.dy) / 2,
-    );
+  // Simple body measurements for easy apparel fitting
+  bool _calculateSimpleBodyMeasurements(
+      PoseLandmark leftShoulder,
+      PoseLandmark rightShoulder,
+      PoseLandmark leftHip,
+      PoseLandmark rightHip,
+      CameraImage image,
+      Size screenSize) {
+    // Convert coordinates to screen space
+    final leftShoulderScreen =
+        _convertCoordinate(leftShoulder, image, screenSize);
+    final rightShoulderScreen =
+        _convertCoordinate(rightShoulder, image, screenSize);
+    final leftHipScreen = _convertCoordinate(leftHip, image, screenSize);
+    final rightHipScreen = _convertCoordinate(rightHip, image, screenSize);
 
-    final hipCenter = Offset(
-      (leftHipScreen.dx + rightHipScreen.dx) / 2,
-      (leftHipScreen.dy + rightHipScreen.dy) / 2,
-    );
-
+    // Calculate simple torso center and dimensions
     final torsoCenter = Offset(
-      (shoulderCenter.dx + hipCenter.dx) / 2,
-      (shoulderCenter.dy + hipCenter.dy) / 2,
+      (leftShoulderScreen.dx +
+              rightShoulderScreen.dx +
+              leftHipScreen.dx +
+              rightHipScreen.dx) /
+          4,
+      (leftShoulderScreen.dy +
+              rightShoulderScreen.dy +
+              leftHipScreen.dy +
+              rightHipScreen.dy) /
+          4,
     );
 
-    // Calculate precise body measurements
     final shoulderWidth =
         (rightShoulderScreen.dx - leftShoulderScreen.dx).abs();
-    final torsoWidth = shoulderWidth * 0.9; // Slight adjustment for natural fit
-    final torsoHeight = (hipCenter.dy - shoulderCenter.dy).abs();
+    final hipWidth = (rightHipScreen.dx - leftHipScreen.dx).abs();
+    final torsoWidth = (shoulderWidth + hipWidth) / 2;
+    final torsoHeight = ((leftHipScreen.dy + rightHipScreen.dy) / 2 -
+            (leftShoulderScreen.dy + rightShoulderScreen.dy) / 2)
+        .abs();
 
-    // Estimate chest width (slightly wider than shoulder for natural fit)
-    double chestWidth = shoulderWidth;
-    if (leftElbow != null &&
-        rightElbow != null &&
-        leftElbow.likelihood > 0.4 &&
-        rightElbow.likelihood > 0.4) {
-      final leftElbowScreen = _convertToScreenCoordinates(
-          leftElbow.x, leftElbow.y, imageWidth, imageHeight, screenSize);
-      final rightElbowScreen = _convertToScreenCoordinates(
-          rightElbow.x, rightElbow.y, imageWidth, imageHeight, screenSize);
-
-      // Use elbow positions to estimate chest width more accurately
-      final elbowDistance = (rightElbowScreen.dx - leftElbowScreen.dx).abs();
-      chestWidth = (shoulderWidth + elbowDistance * 0.8) / 2;
+    // Simple validation - not too small, not too big
+    if (torsoWidth < screenSize.width * 0.1 ||
+        torsoHeight < screenSize.height * 0.15) {
+      return false;
     }
 
-    // Apply enhanced position smoothing with body measurements
-    _updateEnhancedPositionHistory(torsoCenter, torsoWidth, torsoHeight,
-        shoulderCenter, shoulderWidth, chestWidth);
-
-    // Update smoothed values for rendering
-    _torsoCenter = _getSmoothedOffset(_recentTorsoPositions);
-    _torsoWidth = _getSmoothedValue(_recentTorsoWidths);
-    _torsoHeight = _getSmoothedValue(_recentTorsoHeights);
-    _shoulderCenter = _getSmoothedOffset(_recentShoulderCenters);
-    _shoulderWidth = _getSmoothedValue(_recentShoulderWidths);
-    _chestWidth = _getSmoothedValue(_recentChestWidths);
-
-    setState(() {
-      _detectionStatus =
-          '✅ Perfect body detection - adjust fit with controls below';
-      _hasAccurateBodyMeasurements = true;
-    });
-  }
-
-  Offset _convertToScreenCoordinates(
-    double x,
-    double y,
-    int imageWidth,
-    int imageHeight,
-    Size screenSize,
-  ) {
-    // Account for camera orientation and mirroring
-    final bool isFrontCamera = _cameras[_selectedCameraIndex].lensDirection ==
-        CameraLensDirection.front;
-
-    double screenX = x * screenSize.width / imageWidth;
-    double screenY = y * screenSize.height / imageHeight;
-
-    // Mirror for front camera
-    if (isFrontCamera) {
-      screenX = screenSize.width - screenX;
+    if (torsoWidth > screenSize.width * 0.8 ||
+        torsoHeight > screenSize.height * 0.8) {
+      return false;
     }
 
-    return Offset(screenX, screenY);
+    // Update state with measurements
+    _torsoCenter = torsoCenter;
+    _torsoWidth = torsoWidth;
+    _torsoHeight = torsoHeight;
+
+    return true;
   }
 
-  void _updatePositionHistory(Offset torsoPos, double width, double height) {
-    _recentTorsoPositions.add(torsoPos);
-    _recentTorsoWidths.add(width);
-    _recentTorsoHeights.add(height);
-
-    if (_recentTorsoPositions.length > _maxPositionHistory) {
-      _recentTorsoPositions.removeAt(0);
-      _recentTorsoWidths.removeAt(0);
-      _recentTorsoHeights.removeAt(0);
-    }
-  }
-
-  void _updateEnhancedPositionHistory(
-      Offset torsoPos,
-      double width,
-      double height,
-      Offset shoulderPos,
-      double shoulderWidth,
-      double chestWidth) {
-    _recentTorsoPositions.add(torsoPos);
-    _recentTorsoWidths.add(width);
-    _recentTorsoHeights.add(height);
-    _recentShoulderWidths.add(shoulderWidth);
-    _recentChestWidths.add(chestWidth);
-    _recentShoulderCenters.add(shoulderPos);
-
-    if (_recentTorsoPositions.length > _maxPositionHistory) {
-      _recentTorsoPositions.removeAt(0);
-      _recentTorsoWidths.removeAt(0);
-      _recentTorsoHeights.removeAt(0);
-      _recentShoulderWidths.removeAt(0);
-      _recentChestWidths.removeAt(0);
-      _recentShoulderCenters.removeAt(0);
-    }
-  }
-
-  Offset? _getSmoothedOffset(List<Offset> positions) {
-    if (positions.isEmpty) return null;
-    double x = 0, y = 0;
-    for (var pos in positions) {
-      x += pos.dx;
-      y += pos.dy;
-    }
-    return Offset(x / positions.length, y / positions.length);
-  }
-
-  double _getSmoothedValue(List<double> values) {
-    if (values.isEmpty) return 0;
-    return values.reduce((a, b) => a + b) / values.length;
+  // Optimized coordinate conversion
+  Offset _convertCoordinate(
+      PoseLandmark landmark, CameraImage image, Size screenSize) {
+    final double x = landmark.x * screenSize.width / image.width;
+    final double y = landmark.y * screenSize.height / image.height;
+    return Offset(x, y);
   }
 
   Future<void> _switchCamera() async {
@@ -743,26 +669,26 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
                   child: CameraPreview(_cameraController!),
                 ),
 
-                // AR Apparel Overlay
+                // AR Apparel Overlay - simplified
                 if (_showApparel &&
                     _torsoCenter != null &&
                     _torsoWidth > 0 &&
                     _torsoHeight > 0 &&
-                    _isImageReady &&
-                    _hasAccurateBodyMeasurements)
+                    _isImageReady)
                   Positioned.fill(
                     child: CustomPaint(
                       painter: AssetApparelPainter(
                         torsoCenter: _torsoCenter!,
-                        torsoWidth: _torsoWidth * _bodyWidthRatio,
-                        torsoHeight: _torsoHeight * _bodyHeightRatio,
-                        apparelImagePath: _effectiveImagePath,
+                        torsoWidth: _torsoWidth,
+                        torsoHeight: _torsoHeight,
+                        apparelImagePath: widget.productImage,
                         apparelSize: _apparelSize,
                         apparelType: widget.apparelType,
                         preloadedImage: _preloadedImage,
-                        shoulderCenter: _shoulderCenter,
-                        shoulderWidth: _shoulderWidth,
-                        chestWidth: _chestWidth,
+                        shoulderCenter:
+                            null, // Simplified - no complex measurements
+                        shoulderWidth: 0,
+                        chestWidth: 0,
                       ),
                     ),
                   ),
@@ -805,198 +731,98 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
                   ),
                 ),
 
-                // Controls
-                Positioned(
-                  bottom: 40,
-                  left: 20,
-                  right: 20,
-                  child: Column(
-                    children: [
-                      // Enhanced Size Controls
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              '${widget.apparelType.toUpperCase()} Perfect Fit Controls',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Overall Size Control
-                            Row(
-                              children: [
-                                const Icon(Icons.straighten,
-                                    color: Colors.white70, size: 16),
-                                const SizedBox(width: 8),
-                                const Text('Overall Size:',
-                                    style: TextStyle(
-                                        color: Colors.white70, fontSize: 14)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    children: [
-                                      Slider(
-                                        value: _apparelSize,
-                                        min: 0.5,
-                                        max: 2.0,
-                                        divisions: 30,
-                                        activeColor: Colors.purple,
-                                        inactiveColor: Colors.purple
-                                            .withValues(alpha: 0.3),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _apparelSize = value;
-                                          });
-                                        },
-                                      ),
-                                      Text(
-                                        '${(_apparelSize * 100).toInt()}%',
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            // Width Adjustment Control
-                            Row(
-                              children: [
-                                const Icon(Icons.swap_horiz,
-                                    color: Colors.white70, size: 16),
-                                const SizedBox(width: 8),
-                                const Text('Width Fit:',
-                                    style: TextStyle(
-                                        color: Colors.white70, fontSize: 14)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    children: [
-                                      Slider(
-                                        value: _bodyWidthRatio,
-                                        min: 0.7,
-                                        max: 1.4,
-                                        divisions: 35,
-                                        activeColor: Colors.blue,
-                                        inactiveColor:
-                                            Colors.blue.withValues(alpha: 0.3),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _bodyWidthRatio = value;
-                                          });
-                                        },
-                                      ),
-                                      Text(
-                                        '${(_bodyWidthRatio * 100).toInt()}%',
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            // Height Adjustment Control
-                            Row(
-                              children: [
-                                const Icon(Icons.swap_vert,
-                                    color: Colors.white70, size: 16),
-                                const SizedBox(width: 8),
-                                const Text('Length Fit:',
-                                    style: TextStyle(
-                                        color: Colors.white70, fontSize: 14)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    children: [
-                                      Slider(
-                                        value: _bodyHeightRatio,
-                                        min: 0.7,
-                                        max: 1.4,
-                                        divisions: 35,
-                                        activeColor: Colors.green,
-                                        inactiveColor:
-                                            Colors.green.withValues(alpha: 0.3),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _bodyHeightRatio = value;
-                                          });
-                                        },
-                                      ),
-                                      Text(
-                                        '${(_bodyHeightRatio * 100).toInt()}%',
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            // Quick fit buttons
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _buildQuickFitButton('Slim Fit', () {
-                                  setState(() {
-                                    _bodyWidthRatio = 0.85;
-                                    _bodyHeightRatio = 1.1;
-                                  });
-                                }),
-                                _buildQuickFitButton('Regular', () {
-                                  setState(() {
-                                    _bodyWidthRatio = 1.0;
-                                    _bodyHeightRatio = 1.0;
-                                  });
-                                }),
-                                _buildQuickFitButton('Relaxed', () {
-                                  setState(() {
-                                    _bodyWidthRatio = 1.2;
-                                    _bodyHeightRatio = 0.9;
-                                  });
-                                }),
-                              ],
-                            ),
-                          ],
-                        ),
+                // Simple Size Control - like other AR features
+                if (_showSizeControls)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 60,
+                    left: 20,
+                    right: 20,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      // Action Buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      child: Column(
                         children: [
-                          _buildControlButton(
-                            icon: Icons.flip_camera_ios,
-                            label: 'Switch',
-                            onPressed: _switchCamera,
-                          ),
-                          _buildControlButton(
-                            icon: Icons.camera_alt,
-                            label: 'Capture',
-                            onPressed: _capturePhoto,
+                          Row(
+                            children: [
+                              const Icon(Icons.straighten,
+                                  color: Colors.white, size: 18),
+                              const SizedBox(width: 8),
+                              const Text('Size:',
+                                  style: TextStyle(color: Colors.white)),
+                              Expanded(
+                                child: Slider(
+                                  value: _apparelSize,
+                                  min: 0.5,
+                                  max: 2.5,
+                                  divisions: 40,
+                                  activeColor: Colors.blue,
+                                  inactiveColor: Colors.grey,
+                                  label: '${(_apparelSize * 100).toInt()}%',
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _apparelSize = value;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
+                  ),
+
+                // Bottom Controls
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Camera flip button
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Colors.black45,
+                          child: IconButton(
+                            icon: const Icon(Icons.flip_camera_ios,
+                                color: Colors.white, size: 28),
+                            onPressed: _switchCamera,
+                          ),
+                        ),
+
+                        // Capture button
+                        CircleAvatar(
+                          radius: 35,
+                          backgroundColor: Colors.white,
+                          child: IconButton(
+                            icon: const Icon(Icons.camera_alt,
+                                color: Colors.black, size: 35),
+                            onPressed: _capturePhoto,
+                          ),
+                        ),
+
+                        // Size adjustment button
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: _showSizeControls
+                              ? Colors.blue.withValues(alpha: 0.6)
+                              : Colors.black45,
+                          child: IconButton(
+                            icon: const Icon(Icons.straighten,
+                                color: Colors.white, size: 28),
+                            onPressed: () => setState(
+                                () => _showSizeControls = !_showSizeControls),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1004,60 +830,6 @@ class _ARApparelScreenState extends State<ARApparelScreen> {
           : const Center(
               child: CircularProgressIndicator(color: Colors.white),
             ),
-    );
-  }
-
-  Widget _buildControlButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-          ),
-          child: IconButton(
-            icon: Icon(icon, color: Colors.white, size: 24),
-            onPressed: onPressed,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickFitButton(String label, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.2),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
     );
   }
 }

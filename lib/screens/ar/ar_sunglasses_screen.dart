@@ -37,7 +37,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
   FaceDetector? _faceDetector;
   bool _isBusy = false;
   List<Face> _faces = [];
-  bool _isUsingFrontCamera = true;
+  bool _isUsingFrontCamera = false; // DEFAULT: Back camera for realistic AR
   Size? _imageSize;
   bool _isInitializing = true;
   String? _errorMessage;
@@ -59,7 +59,8 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeFaceDetector();
     _loadGlassesImage();
-    _initializeCamera(false); // Start with back camera
+    _initializeCamera(
+        false); // Start with back camera for realistic AR experience
   }
 
   Future<void> _loadGlassesImage() async {
@@ -210,7 +211,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           selectedCamera = widget.cameras.firstWhere(
             (camera) => camera.lensDirection == CameraLensDirection.front,
           );
-        } catch (e) {
+        } catch (_) {
           // Fall back to the first camera if no front camera
           selectedCamera = widget.cameras.first;
         }
@@ -220,7 +221,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           selectedCamera = widget.cameras.firstWhere(
             (camera) => camera.lensDirection == CameraLensDirection.back,
           );
-        } catch (e) {
+        } catch (_) {
           // Fall back to the first camera if no back camera
           selectedCamera = widget.cameras.first;
         }
@@ -263,7 +264,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
 
         _isUsingFrontCamera = useFrontCamera;
         _cameraActive = true;
-      } catch (e) {
+      } catch (_) {
         // If we can't start the stream, we still want to show the camera preview
         // so we don't set an error message here
       }
@@ -302,7 +303,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
         }
       } on CameraException catch (e) {
         // No need to log here, as it's already logged in the main function
-      } catch (e) {
+      } catch (_) {
         // No need to log here, as it's already logged in the main function
       }
       _cameraController = null;
@@ -330,7 +331,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           );
         });
       }
-    } catch (e) {
+    } catch (_) {
       // No need to log here, as it's already logged in the main function
     } finally {
       _isBusy = false;
@@ -365,7 +366,7 @@ class _ARSunglassesScreenState extends State<ARSunglassesScreen>
           bytesPerRow: image.planes.first.bytesPerRow,
         ),
       );
-    } catch (e) {
+    } catch (_) {
       // No need to log here, as it's already logged in the main function
       return null;
     }

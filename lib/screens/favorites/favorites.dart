@@ -5,7 +5,6 @@ import 'package:capstone/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserFavorites extends StatelessWidget {
   const UserFavorites({super.key});
@@ -31,7 +30,6 @@ class UserFavorites extends StatelessWidget {
 
   Widget _buildFavoritesContent(BuildContext context) {
     final favoriteProvider = Provider.of<FavoritesProvider>(context);
-    final theme = Theme.of(context);
     final List<Map<String, dynamic>> favoriteProducts =
         favoriteProvider.favoriteItems;
 
@@ -53,61 +51,6 @@ class UserFavorites extends StatelessWidget {
         return _buildFavoriteItem(context, product, favoriteProvider);
       },
     );
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchFavoriteProducts(
-      List<String> productIds) async {
-    if (productIds.isEmpty) return [];
-
-    List<Map<String, dynamic>> products = [];
-
-    try {
-      // Get Firestore instance
-      final firestore = FirebaseFirestore.instance;
-
-      // Fetch products from admin_products collection
-      for (String productId in productIds) {
-        final doc =
-            await firestore.collection('admin_products').doc(productId).get();
-
-        if (doc.exists) {
-          final data = doc.data() as Map<String, dynamic>;
-
-          // Parse price for display
-          String formattedPrice = 'Price not available';
-          if (data['price'] != null) {
-            if (data['price'] is int || data['price'] is double) {
-              formattedPrice = 'Rs ${data['price'].toString()}';
-            } else if (data['price'] is String) {
-              formattedPrice = 'Rs ${data['price']}';
-            }
-          }
-
-          // Get image URLs
-          List<String> imageURLs = [];
-          if (data['imageURLs'] != null && data['imageURLs'] is List) {
-            imageURLs = List<String>.from(data['imageURLs']);
-          }
-
-          // Add the product to our list
-          products.add({
-            'id': doc.id,
-            'title': data['title'] ?? 'Unknown Product',
-            'price': formattedPrice,
-            'numericPrice': data['price'] ?? 0,
-            'imageURLs': imageURLs,
-            'colors':
-                data['colors'] != null ? List<String>.from(data['colors']) : [],
-            'sizes':
-                data['sizes'] != null ? List<String>.from(data['sizes']) : [],
-          });
-        }
-      }
-    } catch (e) {
-      print('Error fetching favorite products: $e');
-    }
-
-    return products;
   }
 
   Widget _buildEmptyFavorites(BuildContext context) {

@@ -10,7 +10,7 @@ import 'dart:developer' as developer;
 import 'package:camera/camera.dart';
 import 'package:capstone/screens/ar/ar_sunglasses_screen.dart';
 import 'package:capstone/screens/ar/ar_ornaments_screen.dart';
-
+import 'package:capstone/screens/ar/ar_hats_screen.dart';
 import 'package:capstone/screens/ar/ar_watches_screen.dart';
 import 'package:capstone/screens/ar/ar_shoes_screen.dart';
 import 'package:capstone/screens/ar/ar_apparel_screen.dart';
@@ -291,6 +291,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         productTitle.toLowerCase().contains('hoodie') ||
         productTitle.toLowerCase().contains('sweater');
 
+    // Headwear detection
+    bool isHeadwear = category.toLowerCase() == 'headwear' ||
+        category.toLowerCase() == 'hats' ||
+        productTitle.toLowerCase().contains('hat') ||
+        productTitle.toLowerCase().contains('cap') ||
+        productTitle.toLowerCase().contains('beanie') ||
+        productTitle.toLowerCase().contains('headwear');
+
     // Navigate to AR screen based on category
     if (!mounted) return;
 
@@ -301,6 +309,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     developer.log("Is Watch: $isWatch");
     developer.log("Is Shoes: $isShoes");
     developer.log("Is Apparel: $isApparel");
+    developer.log("Is Headwear: $isHeadwear");
     developer.log("🖼️ PRODUCT IMAGE DEBUG:");
     developer.log("   Image URLs count: ${_imageUrls.length}");
     developer.log("   Selected productImage: $productImage");
@@ -384,6 +393,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             productImage: productImage.isNotEmpty
                 ? productImage
                 : 'assets/images/shoes/sneaker_white.png',
+            productId: productId,
+            productData: _currentProductData, // Pass complete product data
+          ),
+        ),
+      );
+    } else if (isHeadwear) {
+      // For headwear, use the AR hats screen
+      developer.log(
+          "Launching headwear AR try-on for: $productTitle (ID: $productId)");
+      developer.log("Category detected: $category");
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ARHatsScreen(
+            cameras: cameras,
+            productImage: productImage.isNotEmpty
+                ? productImage
+                : 'assets/effects/hats/hats.png',
+            productTitle: productTitle,
             productId: productId,
             productData: _currentProductData, // Pass complete product data
           ),

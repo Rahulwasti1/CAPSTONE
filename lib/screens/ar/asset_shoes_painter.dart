@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 class AssetShoesPainter extends CustomPainter {
   final Offset leftFootPosition;
@@ -19,197 +20,277 @@ class AssetShoesPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Draw only ONE pair of shoes
+    // CRITICAL: Draw EXACTLY ONE pair of shoes (2 shoes total - left and right)
+    // Prevent any duplicates by ensuring clean canvas
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    // Debug: Ensure we have valid positions
+    if (leftFootPosition.dx < 0 ||
+        leftFootPosition.dy < 0 ||
+        rightFootPosition.dx < 0 ||
+        rightFootPosition.dy < 0) {
+      canvas.restore();
+      return; // Invalid positions, don't draw anything
+    }
+
     if (preloadedImage != null) {
-      _drawSinglePairShoes(canvas);
+      _drawRealisticShoesPair(canvas);
     } else {
       _drawPlaceholderPair(canvas);
     }
 
-    // Remove debug elements for production
-    // _drawDebugMarkers(canvas);
-    // _drawStatus(canvas);
+    canvas.restore();
   }
 
-  void _drawSinglePairShoes(Canvas canvas) {
-    // Calculate shoe dimensions based on realistic foot proportions
-    final double baseShoeWidth = 140.0; // Increased base size
-    final double baseShoeHeight = 90.0;
-
-    final double shoeWidth = baseShoeWidth * shoeSize;
-    final double shoeHeight = baseShoeHeight * shoeSize;
-
-    // Draw left shoe
-    _drawShoe(canvas, leftFootPosition, shoeWidth, shoeHeight,
-        isLeftFoot: true);
-
-    // Draw right shoe
-    _drawShoe(canvas, rightFootPosition, shoeWidth, shoeHeight,
-        isLeftFoot: false);
+  void _drawRealisticShoesPair(Canvas canvas) {
+    // CRITICAL: Render shoe PAIR image only ONCE, centered between feet
+    _drawSinglePairImage(canvas);
   }
 
-  void _drawPlaceholderPair(Canvas canvas) {
-    // Calculate shoe dimensions - match the main shoe drawing
-    final double baseShoeWidth = 140.0;
-    final double baseShoeHeight = 90.0;
-
-    final double shoeWidth = baseShoeWidth * shoeSize;
-    final double shoeHeight = baseShoeHeight * shoeSize;
-
-    // Draw left placeholder
-    _drawVisibleShoe(canvas, leftFootPosition, shoeWidth, shoeHeight, true);
-
-    // Draw right placeholder
-    _drawVisibleShoe(canvas, rightFootPosition, shoeWidth, shoeHeight, false);
-  }
-
-  void _drawStatus(Canvas canvas) {
-    final statusText = preloadedImage != null
-        ? 'Image loaded: ${shoeImagePath.split('/').last}'
-        : 'Loading image: ${shoeImagePath.split('/').last}';
-
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: statusText,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          shadows: [
-            Shadow(
-              offset: Offset(1, 1),
-              blurRadius: 3,
-              color: Colors.black,
-            ),
-          ],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-
-    textPainter.layout();
-    textPainter.paint(canvas, const Offset(20, 120));
-  }
-
-  void _drawDebugMarkers(Canvas canvas) {
-    final debugPaint = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.fill;
-
-    final areaPaint = Paint()
-      ..color = Colors.green.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    // Draw larger circles at foot positions for debugging
-    canvas.drawCircle(leftFootPosition, 12, debugPaint);
-    canvas.drawCircle(rightFootPosition, 12, debugPaint);
-
-    // Draw detection area circles
-    canvas.drawCircle(leftFootPosition, 60, areaPaint);
-    canvas.drawCircle(rightFootPosition, 60, areaPaint);
-  }
-
-  void _drawShoe(Canvas canvas, Offset position, double width, double height,
-      {required bool isLeftFoot}) {
+  void _drawSinglePairImage(Canvas canvas) {
     if (preloadedImage == null) return;
 
+    // Calculate center point between both feet
+    final Offset centerPoint = Offset(
+      (leftFootPosition.dx + rightFootPosition.dx) / 2,
+      (leftFootPosition.dy + rightFootPosition.dy) / 2,
+    );
+
+    // Calculate distance between feet for accurate scaling
+    final double feetDistance = (rightFootPosition - leftFootPosition).distance;
+
+    // Calculate angle between feet for proper rotation
+    final double feetAngle = math.atan2(
+      rightFootPosition.dy - leftFootPosition.dy,
+      rightFootPosition.dx - leftFootPosition.dx,
+    );
+
+    // Calculate REALISTIC dimensions based on foot spacing
+    // Professional shoe fitting: shoes should match natural foot spread
+    final double naturalFootSpread = feetDistance;
+    final double pairWidth =
+        naturalFootSpread * 1.05 * shoeSize; // Slightly wider for natural fit
+    final double pairHeight = pairWidth * 0.55; // Realistic shoe proportions
+
+    canvas.save();
+
+    // Transform to center point with natural rotation
+    canvas.translate(centerPoint.dx, centerPoint.dy);
+    canvas.rotate(feetAngle);
+
+    // Draw realistic shadow system for depth and ground contact
+    _drawRealisticShadow(canvas, pairWidth, pairHeight);
+
+    // Draw the shoe pair with professional quality
     final paint = Paint()
       ..filterQuality = FilterQuality.high
       ..isAntiAlias = true;
 
-    // Calculate shoe position (center the shoe on the foot position)
+    // Create the destination rectangle for natural shoe placement
     final Rect destRect = Rect.fromCenter(
-      center: position,
-      width: width,
-      height: height,
+      center: Offset.zero,
+      width: pairWidth,
+      height: pairHeight,
     );
 
-    // Source rectangle - crop the image to show only one shoe from the pair
-    // Assume the shoe asset contains a pair side by side
-    final double imageWidth = preloadedImage!.width.toDouble();
-    final double imageHeight = preloadedImage!.height.toDouble();
+    final Rect srcRect = Rect.fromLTWH(
+      0,
+      0,
+      preloadedImage!.width.toDouble(),
+      preloadedImage!.height.toDouble(),
+    );
 
-    // For left foot, use left half of the image
-    // For right foot, use right half of the image
-    final Rect srcRect = isLeftFoot
-        ? Rect.fromLTWH(0, 0, imageWidth / 2, imageHeight) // Left half
-        : Rect.fromLTWH(
-            imageWidth / 2, 0, imageWidth / 2, imageHeight); // Right half
-
-    // Draw the shoe with smooth scaling
+    // Render the shoe pair with realistic blending
     canvas.drawImageRect(preloadedImage!, srcRect, destRect, paint);
 
-    // Add subtle shadow for depth
-    _drawShoeShadow(canvas, position, width, height);
+    // Add professional lighting effects
+    _addRealisticLighting(canvas, pairWidth, pairHeight);
+
+    // Add subtle depth and material effects
+    _addMaterialEffects(canvas, pairWidth, pairHeight);
+
+    canvas.restore();
   }
 
-  void _drawShoeShadow(
-      Canvas canvas, Offset position, double width, double height) {
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.3)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
+  void _drawRealisticShadow(Canvas canvas, double width, double height) {
+    // Create multi-layered shadow for realistic ground contact
 
-    final shadowOffset = Offset(position.dx + 2, position.dy + 8);
-    final shadowRect = Rect.fromCenter(
-      center: shadowOffset,
-      width: width * 0.8,
+    // Primary shadow (direct contact)
+    final primaryShadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.3)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
+
+    final primaryShadowRect = Rect.fromCenter(
+      center: Offset(2, 8), // Natural shadow offset
+      width: width * 0.85,
+      height: height * 0.25, // Flattened for ground contact
+    );
+
+    canvas.drawOval(primaryShadowRect, primaryShadowPaint);
+
+    // Secondary shadow (ambient lighting)
+    final ambientShadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.15)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12.0);
+
+    final ambientShadowRect = Rect.fromCenter(
+      center: Offset(1, 4),
+      width: width * 0.95,
+      height: height * 0.35,
+    );
+
+    canvas.drawOval(ambientShadowRect, ambientShadowPaint);
+  }
+
+  void _addRealisticLighting(Canvas canvas, double width, double height) {
+    // Add highlight on top surface (simulating overhead lighting)
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.12)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
+      ..blendMode = BlendMode.overlay;
+
+    final highlightRect = Rect.fromCenter(
+      center: Offset(0, -height * 0.2),
+      width: width * 0.6,
       height: height * 0.3,
     );
 
-    canvas.drawOval(shadowRect, shadowPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        highlightRect,
+        Radius.circular(height * 0.08),
+      ),
+      highlightPaint,
+    );
+
+    // Add subtle side reflection
+    final reflectionPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0)
+      ..blendMode = BlendMode.softLight;
+
+    final reflectionRect = Rect.fromCenter(
+      center: Offset(-width * 0.2, 0),
+      width: width * 0.15,
+      height: height * 0.7,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        reflectionRect,
+        Radius.circular(width * 0.02),
+      ),
+      reflectionPaint,
+    );
   }
 
-  void _drawVisibleShoe(Canvas canvas, Offset position, double width,
-      double height, bool isLeftFoot) {
-    // Draw a clearly visible colored shoe shape
+  void _addMaterialEffects(Canvas canvas, double width, double height) {
+    // Add subtle texture and depth to make shoes look more realistic
+
+    // Create depth gradient
+    final depthPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.05)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.inner, 2.0)
+      ..blendMode = BlendMode.multiply;
+
+    final depthRect = Rect.fromCenter(
+      center: Offset(0, height * 0.1),
+      width: width * 0.9,
+      height: height * 0.8,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        depthRect,
+        Radius.circular(height * 0.1),
+      ),
+      depthPaint,
+    );
+
+    // Add subtle edge definition
+    final edgePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.06)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..blendMode = BlendMode.overlay;
+
+    final edgeRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: width, height: height),
+      Radius.circular(height * 0.12),
+    );
+
+    canvas.drawRRect(edgeRect, edgePaint);
+  }
+
+  // Removed old individual shoe rendering methods - now using single pair rendering
+
+  void _drawPlaceholderPair(Canvas canvas) {
+    // Draw single pair placeholder centered between feet
+    _drawSinglePlaceholderPair(canvas);
+  }
+
+  void _drawSinglePlaceholderPair(Canvas canvas) {
+    // Calculate center point between both feet
+    final Offset centerPoint = Offset(
+      (leftFootPosition.dx + rightFootPosition.dx) / 2,
+      (leftFootPosition.dy + rightFootPosition.dy) / 2,
+    );
+
+    // Calculate distance between feet for scaling
+    final double feetDistance = (rightFootPosition - leftFootPosition).distance;
+    final double pairWidth = feetDistance * 1.05 * shoeSize;
+    final double pairHeight = pairWidth * 0.55;
+
+    // Calculate angle between feet for rotation
+    final double feetAngle = math.atan2(
+      rightFootPosition.dy - leftFootPosition.dy,
+      rightFootPosition.dx - leftFootPosition.dx,
+    );
+
+    canvas.save();
+    canvas.translate(centerPoint.dx, centerPoint.dy);
+    canvas.rotate(feetAngle);
+
+    // Draw placeholder pair
     final shoePaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.9)
+      ..color = Colors.blue.withValues(alpha: 0.7)
       ..style = PaintingStyle.fill;
 
     final outlinePaint = Paint()
-      ..color = Colors.white
+      ..color = Colors.white.withValues(alpha: 0.9)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
+      ..strokeWidth = 3.0;
 
-    // Draw shoe as rounded rectangle (shoe-like shape)
-    final shoeRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: position, width: width, height: height),
-      Radius.circular(height * 0.3),
-    );
-
-    // Fill
-    canvas.drawRRect(shoeRect, shoePaint);
-
-    // Outline
-    canvas.drawRRect(shoeRect, outlinePaint);
-
-    // Add shoe details (laces area)
-    final lacesPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.8)
-      ..style = PaintingStyle.fill;
-
-    final lacesRect = RRect.fromRectAndRadius(
+    // Draw pair as rounded rectangle
+    final pairRect = RRect.fromRectAndRadius(
       Rect.fromCenter(
-        center: Offset(position.dx, position.dy - height * 0.1),
-        width: width * 0.6,
-        height: height * 0.4,
-      ),
-      Radius.circular(height * 0.1),
+          center: Offset.zero, width: pairWidth, height: pairHeight),
+      Radius.circular(pairHeight * 0.15),
     );
 
-    canvas.drawRRect(lacesRect, lacesPaint);
+    // Shadow
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.2)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
 
-    // Add shadow
-    _drawShoeShadow(canvas, position, width, height);
+    final shadowRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: Offset(3, 6), width: pairWidth, height: pairHeight),
+      Radius.circular(pairHeight * 0.15),
+    );
 
-    // Add "L/R" text for clarity
+    canvas.drawRRect(shadowRect, shadowPaint);
+    canvas.drawRRect(pairRect, shoePaint);
+    canvas.drawRRect(pairRect, outlinePaint);
+
+    // Add text
     final textPainter = TextPainter(
-      text: TextSpan(
-        text: isLeftFoot ? 'L' : 'R',
-        style: const TextStyle(
-          color: Colors.black,
-          fontSize: 18,
+      text: const TextSpan(
+        text: 'SHOE PAIR',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -219,12 +300,13 @@ class AssetShoesPainter extends CustomPainter {
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(
-        position.dx - textPainter.width / 2,
-        position.dy - textPainter.height / 2,
-      ),
+      Offset(-textPainter.width / 2, -textPainter.height / 2),
     );
+
+    canvas.restore();
   }
+
+  // Removed old individual placeholder rendering method - now using single pair placeholder
 
   @override
   bool shouldRepaint(covariant AssetShoesPainter oldDelegate) {

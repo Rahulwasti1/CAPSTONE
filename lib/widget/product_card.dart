@@ -3,6 +3,8 @@ import 'dart:typed_data'; // For Uint8List
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as developer;
+import 'package:camera/camera.dart';
+import 'package:capstone/screens/ar/ar_hats_screen.dart';
 
 class ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
@@ -467,16 +469,24 @@ class FlashSaleProductCard extends StatelessWidget {
                     // Small spacing
                     SizedBox(height: 2.h),
 
-                    // Price - Fixed space at bottom
-                    Text(
-                      price,
-                      style: TextStyle(
-                        fontSize: 12.sp, // Good readable size
-                        fontWeight: FontWeight.w600,
-                        color: Colors.brown,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                    // Price and Try On Button Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Price
+                        Expanded(
+                          child: Text(
+                            price,
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.brown,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -486,6 +496,45 @@ class FlashSaleProductCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _navigateToHatAR(BuildContext context) async {
+    try {
+      // Import camera package
+      final cameras = await availableCameras();
+
+      if (!context.mounted) return;
+
+      // Get product image - try to use the actual product image if available
+      String productImage = 'assets/effects/hats/hats.png'; // Default fallback
+
+      // Try to get the actual product image
+      List<String> imagesList = _extractAllImages();
+      if (imagesList.isNotEmpty) {
+        productImage = imagesList.first;
+      }
+
+      // Navigate to Hat AR screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ARHatsScreen(
+            cameras: cameras,
+            productImage: productImage,
+            productTitle: product['title'] ?? 'Hat',
+            productId: product['id'],
+            productData: product,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Camera not available: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // Extract all possible images from the product data

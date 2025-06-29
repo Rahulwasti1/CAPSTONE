@@ -9,6 +9,10 @@ class CustomListViewBuilder {
     {"image": "assets/images/category_image/glass.png", "text": "Sunglasses"},
     {"image": "assets/images/category_image/watch.png", "text": "Watches"},
     {"image": "assets/images/category_image/shoes.png", "text": "Shoes"},
+    {
+      "icon": Icons.emoji_objects,
+      "text": "Headwear"
+    }, // Using icon instead of image
   ];
 
   Widget buildListView() {
@@ -37,12 +41,18 @@ class CustomListViewBuilder {
                         shape: CircleBorder(),
                         minimumSize: Size(70, 70),
                       ),
-                      child: Image.asset(
-                        buttonData[index]["image"],
-                        color: CustomColors.secondaryColor,
-                        width: 26.w,
-                        height: 26.h,
-                      ),
+                      child: buttonData[index]["image"] != null
+                          ? Image.asset(
+                              buttonData[index]["image"],
+                              color: CustomColors.secondaryColor,
+                              width: 26.w,
+                              height: 26.h,
+                            )
+                          : Icon(
+                              buttonData[index]["icon"] ?? Icons.category,
+                              color: CustomColors.secondaryColor,
+                              size: 26.sp,
+                            ),
                     ),
                     SizedBox(height: 5), // Space between icon & text
                     Text(

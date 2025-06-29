@@ -46,6 +46,7 @@ class _UserhomeState extends State<Userhome> {
 
     try {
       final products = await _productService.getFlashSaleProducts();
+
       if (!mounted) return;
 
       setState(() {

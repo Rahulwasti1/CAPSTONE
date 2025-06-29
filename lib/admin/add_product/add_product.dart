@@ -8,7 +8,6 @@ import 'package:capstone/service/asset_organizer_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/services.dart';
 
 class AdminAddProduct extends StatefulWidget {
   const AdminAddProduct({
@@ -56,6 +55,7 @@ class _AdminAddProductState extends State<AdminAddProduct> {
     'Watches': ['Small', 'Medium', 'Large'],
     'Ornaments': ['Small', 'Medium', 'Large'],
     'Sunglasses': ['Small', 'Medium', 'Large'],
+    'Headwear': ['S', 'M', 'L'],
     'Sports': ['S', 'M', 'L', 'XL', 'XXL'],
     'Formal': ['S', 'M', 'L', 'XL', 'XXL'],
     'Casual': ['S', 'M', 'L', 'XL', 'XXL']
